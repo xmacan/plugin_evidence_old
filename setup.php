@@ -53,6 +53,7 @@ function plugin_evidence_uninstall () {
 	if (sizeof(db_fetch_assoc("SHOW TABLES LIKE 'plugin_evidence_history'")) > 0 ) {
 		db_execute("DROP TABLE `plugin_evidence_history`");
 	}
+
 }
 
 
@@ -67,8 +68,8 @@ function plugin_evidence_version() {
 function plugin_evidence_check_config () {
 
 	include_once($config['base_path'] . '/plugins/evidence/include/database.php');
-
 	plugin_evidence_upgrade_database();
+
 	return true;
 }
 
@@ -77,7 +78,6 @@ function plugin_evidence_setup_database() {
 	global $config;
 
 	include_once($config['base_path'] . '/plugins/evidence/include/database.php');
-
 	plugin_evidence_initialize_database();
 }
 
