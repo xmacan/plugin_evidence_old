@@ -51,12 +51,26 @@ function plugin_evidence_initialize_database() {
 
 	$data = array();
 	$data['columns'][] = array('name' => 'host_id', 'type' => 'int(11)', 'NULL' => false);
-	$data['columns'][] = array('name' => 'data', 'type' => 'text', 'NULL' => true);
-	$data['columns'][] = array('name' => 'last_check', 'type' => 'timestamp', 'NULL' => false, 'default' => '0000-00-00 00:00:00');
+	$data['columns'][] = array('name' => 'index', 'type' => 'int(11)', 'NULL' => false);
+	$data['columns'][] = array('name' => 'organization_id', 'type' => 'int(11)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'organization_name', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'descr', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'name', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'hardware_rev', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'firmware_rev', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'software_rev', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'serial_num', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'mfg_name', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'model_name', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'alias', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'asset_id', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'mfg_date', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'mfg_date', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'scan_date', 'type' => 'timestamp', 'NULL' => false, 'default' => '0000-00-00 00:00:00');
 	$data['primary'] = 'host_id';
 
 	$data['type'] = 'InnoDB';
-	$data['comment'] = 'evidence history';
+	$data['comment'] = 'evidence entity mib data';
 	api_plugin_db_table_create ('evidence', 'plugin_evidence_history', $data);
 
 	// vendor specific

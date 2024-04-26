@@ -23,6 +23,8 @@
  +-------------------------------------------------------------------------+
 */
 
+//!!! evidence v nazvu tabu ma male e
+
 function plugin_evidence_install () {
 
 	api_plugin_register_hook('evidence', 'device_edit_top_links', 'plugin_evidence_device_edit_top_links', 'include/functions.php');
@@ -66,6 +68,7 @@ function plugin_evidence_version() {
 
 
 function plugin_evidence_check_config () {
+	global $config;
 
 	include_once($config['base_path'] . '/plugins/evidence/include/database.php');
 	plugin_evidence_upgrade_database();

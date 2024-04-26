@@ -29,41 +29,39 @@ function plugin_evidence_config_settings() {
 	$tabs['evidence'] = 'evidence';
 
 	$settings['evidence'] = array(
-		'evidence_hosts_processed' => array(
-			'friendly_name' => 'Run periodically and store evidence history',
-			'description'   => 'If enabled, every poller run evidence detects information about several devices and store results.',
+		'evidence_frequency' => array(
+			'friendly_name' => 'How often gather data',
+			'description'   => 'If enabled, Evidence will gather data periodically. If disabled, you can only view data for specific host',
 			'method'        => 'drop_array',
 			'array'         => array(
-				'0'    => 'Disabled',
-				'10'   => '10 devices',
-				'50'   => '50 devices',
-				'100'  => '100 devices',
+				'0'     => 'Disabled',
+				'6'     => 'Every 6 hours',
+				'24'   => 'Every day',
+				'168'   => 'Every week',
 			),
-			'default'       => '0',
+			'default'       => '24',
 		),
+
+		'evidence_base_time' => array(
+			'friendly_name' => 'Excluded notification Host IDs',
+			'description'   => 'The Base Time for gather data to occur.  For example, if you use \'12:00am\' and you choose once per day, the action would begin at approximately midnight every day.',
+			'method'        => 'textbox',
+			'max_length'	=> '10',
+			'default'       => '01:30am',
+		),
+
+
 		'evidence_records' => array(
-		'friendly_name' => 'How many changes store',
-			'description'   => 'How many history (changed) records keep for each device',
+		'friendly_name' => 'How many changes store in database',
+			'description'   => 'If data gathering is enabled,  you can specify how many history (changed) records keep for each device',
 			'method'        => 'drop_array',
 			'array'         => array(
 				'0'    => 'Without history',
-				'1'    => '1 record',
-				'5'   => '5 records',
+				'2'    => '2 record',
 				'10'   => '10 records',
+				'30'   => '30 records',
 			),
-			'default'       => '5',
-		),
-		'evidence_history' => array(
-			'friendly_name' => 'Recheck after',
-			'description'   => 'The shortest possible interval after which new testing will occur',
-			'method'        => 'drop_array',
-			'array'         => array(
-				'1'    => '1 day',
-				'7'    => '7 days',
-				'30'   => '30 days',
-				'100'  => '100 days',
-			),
-			'default'       => '30',
+			'default'       => '10',
 		),
 		'evidence_email_notify' => array(
 			'friendly_name' => 'Send email on evidence information change',
@@ -71,13 +69,21 @@ function plugin_evidence_config_settings() {
 			'method'        => 'checkbox',
 			'default'       => 'off',
 		),
-		'evidence_email_notify_exclude' => array(
+		'evidence_email_notify_exclude_hosts' => array(
 			'friendly_name' => 'Excluded notification Host IDs',
 			'description'   => 'Some devices report hw changes too often. You can exclude these host from email notification. Insert Host IDs, comma separator',
 			'method'        => 'textbox',
 			'max_length'	=> '500',
 			'default'       => '',
 		),
+		'evidence_email_notify_exclude_templates' => array(
+			'friendly_name' => 'Excluded notification device templates',
+			'description'   => 'Some devices types report hw changes too often. You can exclude these templates from email notification. Insert device templates IDs, comma separator',
+			'method'        => 'textbox',
+			'max_length'	=> '500',
+			'default'       => '',
+		),
+
 	);
 }
 
