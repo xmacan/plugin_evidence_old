@@ -127,23 +127,26 @@ function plugin_evidence_get_allowed_devices($user_id, $array = false) {
 }
 
 
-function plugin_evidence_get_data($host) {
+function plugin_evidence_get_data($h) {
 	global $config;
 
-	include_once('./lib/snmp.php');
+
+	include_once($config['library_path'] . '/snmp.php');
 
 	$return = array(
-		'result' = true,
-		'error' = '';
-		'data' = array()
+		'result' => true,
+		'error'  => '',
+		'org_id' => '',
+		'org_name' => '',
+		'data'   => array()
 	);
 
 //!! nemel bych tady hlidat i ID, jestli ma prava?
 
 	/* for requests from gui */
-	if ($host['snmp_version'] == 0){
+	if ($h['snmp_version'] == 0){
 		$return['result'] = false;
-		$return['error'] = 'No snmp version'
+		$return['error'] = 'No snmp version';
 		return $return;
 	}
 
@@ -151,136 +154,196 @@ function plugin_evidence_get_data($host) {
 
 	cacti_oid_numeric_format();
 
-	$sys_object_id = @cacti_snmp_get($host['hostname'], $host['snmp_community'],
-		'.1.3.6.1.2.1.1.2.0', $host['snmp_version'],
-		$host['snmp_username'], $host['snmp_password'], $host['snmp_auth_protocol'],
-		$host['snmp_priv_passphrase'], $host['snmp_priv_protocol'],
-		$host['snmp_context'], $host['snmp_port'], $host['snmp_timeout'],0);
+	$sys_object_id = @cacti_snmp_get($h['hostname'], $h['snmp_community'],
+		'.1.3.6.1.2.1.1.2.0', $h['snmp_version'],
+		$h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'],
+		$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],
+		$h['snmp_context'], $h['snmp_port'], $h['snmp_timeout'],0);
 
-	if (!issset($sys_object_id) || $sys_object_id == 'U') {
+	if (!isset($sys_object_id) || $sys_object_id == 'U') {
 		$return['result'] = false;
-		$return['error'] = 'Cannot determine sysObjectID, is snmp configured correctly? Maybe host down.'
+		$return['error'] = 'Cannot determine sysObjectID, is snmp configured correctly? Maybe host down.';
 		return $return;
 	}
 
 	$return['data']['organization_id'] = $sys_object_id;
 
-	preg_match('/^([a-zA-Z0-9\.: ]+)\.1\.3\.6\.1\.4\.1\.([0-9]+)[a-zA-Z0-9\. ]*$/',$ys_object_id, $match);
-	$id_org = $match[2];
+	preg_match('/^([a-zA-Z0-9\.: ]+)\.1\.3\.6\.1\.4\.1\.([0-9]+)[a-zA-Z0-9\. ]*$/', $sys_object_id, $match);
+	$org_id = $match[2];
 
 	$org = db_fetch_cell_prepared ('SELECT organization 
 		FROM plugin_evidence_organizations 
 		WHERE id = ?',
-		array($id_org));
+		array($org_id));
 
-	$return['data']['organization_name'] = $org;
+	$return['org_name'] = $org;
+	$return['org_id'] = $org_id;
 
-//!! tady jsem skoncil
-	$data_descr = @cacti_snmp_walk($host['hostname'], $host['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.2', $host['snmp_version'], $host['snmp_username'], $host['snmp_password'], 
-		$host['snmp_auth_protocol'], $host['snmp_priv_passphrase'], $host['snmp_priv_protocol'], $host['snmp_context'], $host['snmp_port'], $host['snmp_timeout']);
+	$indexes = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.1',
+		$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], 
+		$h['snmp_auth_protocol'], $h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], 
+		$h['snmp_context'], $h['snmp_port'], $h['snmp_timeout']);
 
-	$data_name = @cacti_snmp_walk($host['hostname'], $host['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.7', $host['snmp_version'], $host['snmp_username'], $host['snmp_password'], 
-		$host['snmp_auth_protocol'], $host['snmp_priv_passphrase'], $host['snmp_priv_protocol'], $host['snmp_context'], $host['snmp_port'], $host['snmp_timeout']);
+	if (cacti_sizeof($indexes) > 0) {
 
-	$data_hardwarerev = @cacti_snmp_walk($host['hostname'], $host['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.8', $host['snmp_version'], $host['snmp_username'], $host['snmp_password'], 
-		$host['snmp_auth_protocol'], $host['snmp_priv_passphrase'], $host['snmp_priv_protocol'], $host['snmp_context'], $host['snmp_port'], $host['snmp_timeout']);
+		// index uz mam
+		$data_descr = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.2', 
+			$h['snmp_version'], $h['snmp_username'], $h['snmp_password'],$h['snmp_auth_protocol'], 
+			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'], 
+			$h['snmp_port'], $h['snmp_timeout']);
 
-	$data_firmwarerev = @cacti_snmp_walk($host['hostname'], $host['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.9', $host['snmp_version'], $host['snmp_username'], $host['snmp_password'], 
-		$host['snmp_auth_protocol'], $host['snmp_priv_passphrase'], $host['snmp_priv_protocol'], $host['snmp_context'], $host['snmp_port'], $host['snmp_timeout']);
+		$data_name = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.7', 
+			$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'], 
+			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'], 
+			$h['snmp_port'], $h['snmp_timeout']);
 
-	$data_softwarerev = @cacti_snmp_walk($host['hostname'], $host['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.10', $host['snmp_version'], $host['snmp_username'], $host['snmp_password'], 
-		$host['snmp_auth_protocol'], $host['snmp_priv_passphrase'], $host['snmp_priv_protocol'], $host['snmp_context'], $host['snmp_port'], $host['snmp_timeout']);
+		$data_hardware_rev = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.8', 
+			$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'], 
+			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'], 
+			$h['snmp_port'], $h['snmp_timeout']);
 
-	$data_serialnum = @cacti_snmp_walk($host['hostname'], $host['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.11', $host['snmp_version'], $host['snmp_username'], $host['snmp_password'], 
-		$host['snmp_auth_protocol'], $host['snmp_priv_passphrase'], $host['snmp_priv_protocol'], $host['snmp_context'], $host['snmp_port'], $host['snmp_timeout']);
+		$data_firmware_rev = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.9', 
+			$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'], 
+			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'], 
+			$h['snmp_port'], $h['snmp_timeout']);
 
-	$data_mfgname = @cacti_snmp_walk($host['hostname'], $host['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.12', $host['snmp_version'], $host['snmp_username'], $host['snmp_password'], 
-		$host['snmp_auth_protocol'], $host['snmp_priv_passphrase'], $host['snmp_priv_protocol'], $host['snmp_context'], $host['snmp_port'], $host['snmp_timeout']);
+		$data_software_rev = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.10', 
+			$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'], 
+			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'], 
+			$h['snmp_port'], $h['snmp_timeout']);
 
-	$data_modelname = @cacti_snmp_walk($host['hostname'], $host['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.13', $host['snmp_version'], $host['snmp_username'], $host['snmp_password'], 
-		$host['snmp_auth_protocol'], $host['snmp_priv_passphrase'], $host['snmp_priv_protocol'], $host['snmp_context'], $host['snmp_port'], $host['snmp_timeout']);
+		$data_serial_num = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.11', 
+			$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'], 
+			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'], 
+			$h['snmp_port'], $h['snmp_timeout']);
 
-	$data_mfgdate = @cacti_snmp_walk($host['hostname'], $host['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.17', $host['snmp_version'], $host['snmp_username'], $host['snmp_password'], 
-		$host['snmp_auth_protocol'], $host['snmp_priv_passphrase'], $host['snmp_priv_protocol'], $host['snmp_context'], $host['snmp_port'], $host['snmp_timeout']);
+		$data_mfg_name = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.12', 
+			$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'], 
+			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'], 
+			$h['snmp_port'], $h['snmp_timeout']);
 
-	if (cacti_sizeof($data_descr) > 0) {
-		foreach ($data_descr as $key=>$val) {
+		$data_model_name = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.13', 
+			$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'], 
+			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'], 
+			$h['snmp_port'], $h['snmp_timeout']);
 
-			if (!empty($data_hardwarerev[$key]['value']) || !empty($data_firmwarerev[$key]['value']) || !empty($data_softwarerev[$key]['value']) ||
-				!empty($data_serialnum[$key]['value'])) {
+		$data_alias = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.14', 
+			$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'], 
+			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'], 
+			$h['snmp_port'], $h['snmp_timeout']);
 
-				$out .= $data_name[$key]['value'] ? 'Name: ' . $data_name[$key]['value'] . '<br/>': '';
-				$out .= $val['value'] ? 'Description: ' . $val['value'] . '<br/>': '';
-				$out .= !empty($data_hardwarerev[$key]['value']) ? 'HW revision: ' . $data_hardwarerev[$key]['value'] . '<br/>': '';
-				$out .= !empty($data_firmwarerev[$key]['value']) ? 'FW revision: ' . $data_firmwarerev[$key]['value'] . '<br/>': '';
-				$out .= !empty($data_softwarerev[$key]['value']) ? 'SW revision: ' . $data_softwarerev[$key]['value'] . '<br/>': '';
-				$out .= !empty($data_serialnum[$key]['value']) ? 'Serial number: ' . $data_serialnum[$key]['value'] . '<br/>': '';
-				$out .= !empty($data_mfgname[$key]['value']) ? 'Manufact. name: ' . $data_mfgname[$key]['value'] . '<br/>': '';
-				$out .= !empty($data_modelname[$key]['value']) ? 'Model name: ' . $data_modelname[$key]['value'] . '<br/>': '';
-				if (!empty($data_mfgdate[$key])) {
-					$data_mfgdate[$key]['value'] = str_replace(' ','',$data_mfgdate[$key]['value']);
-					$man_year = hexdec(substr($data_mfgdate[$key]['value'],0,4));
-					$man_month = str_pad(hexdec(substr($data_mfgdate[$key]['value'],4,2)),2,'0',STR_PAD_LEFT);
-					$man_day = str_pad(hexdec(substr($data_mfgdate[$key]['value'],6,2)),2,'0',STR_PAD_LEFT);
-					if ($man_year != 0) {
-						$out .= 'Manufactory date: ' . $man_year . '-' . $man_month . '-' . $man_day . '<br/>';
-					}
+		$data_asset_id = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.15', 
+			$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'], 
+			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'], 
+			$h['snmp_port'], $h['snmp_timeout']);
+
+		$data_mfg_date = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.17', 
+			$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'], 
+			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'], 
+			$h['snmp_port'], $h['snmp_timeout']);
+
+		$data_uuid = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.19', 
+			$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'], 
+			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'], 
+			$h['snmp_port'], $h['snmp_timeout']);
+
+		foreach ($indexes as $key => $val) {
+			$date = '';
+
+			if (isset($data_mfg_date[$key])) {
+				$data_mfg_date[$key]['value'] = str_replace(' ' ,'', $data_mfg_date[$key]['value']);
+				$man_year = hexdec(substr($data_mfg_date[$key]['value'], 0, 4));
+				$man_month = str_pad(hexdec(substr($data_mfg_date[$key]['value'], 4, 2)), 2, '0', STR_PAD_LEFT);
+				$man_day = str_pad(hexdec(substr($data_mfg_date[$key]['value'], 6, 2)), 2, '0', STR_PAD_LEFT);
+				if ($man_year != 0) {
+					$date = $man_year . '-' . $man_month . '-' . $man_day;
 				}
-				$out .= '<br/>';
 			}
+
+			$entity[$val['value']] = array (
+				isset($data_descr[$key]['value']) ? $data_descr[$key]['value'] : '',
+				isset($data_name[$key]['value']) ? $data_name[$key]['value'] : '',
+				isset($data_hardware_rev[$key]['value']) ? $data_hardware_rev[$key]['value'] : '',
+				isset($data_firmware_rev[$key]['value']) ? $data_firmware_rev[$key]['value'] : '',
+				isset($data_software_rev[$key]['value']) ? $data_software_rev[$key]['value'] : '',
+				isset($data_serial_num[$key]['value']) ? $data_serial_num[$key]['value'] : '',
+				isset($data_mfg_name[$key]['value']) ? $data_mfg_name[$key]['value'] : '',
+				isset($data_model_name[$key]['value']) ? $data_model_name[$key]['value'] : '',
+				isset($data_alias[$key]['value']) ? $data_alias[$key]['value'] : '',
+				isset($data_asset_id[$key]['value']) ? $data_asset_id[$key]['value'] : '',
+				$date,
+				isset($data_uuid[$key]['value']) ? $data_uuid[$key]['value'] : ''
+				);
 		}
-	} else {
-		$out .= 'Device doesn\'t support Entity MIB<br/><br/>';
+
+
+	$return['data'] = $entity;
 	}
 
-	// end of entity mib
+	return $return;
+}
 
-	$macs = @cacti_snmp_walk($host['hostname'], $host['snmp_community'],
-		'.1.3.6.1.2.1.2.2.1.6', $host['snmp_version'],
-		$host['snmp_username'], $host['snmp_password'], $host['snmp_auth_protocol'],
-		$host['snmp_priv_passphrase'], $host['snmp_priv_protocol'],
-		$host['snmp_context'], $host['snmp_port'], $host['snmp_timeout'],1);
 
-	if ($string == 'U' || $string == '') {
-		$string = 'Cannot find MAC address. Device may not support it.';
-	}
 
-	$count = 0;
-	$out .= '<b>MAC address:</b><br/>';
+function plugin_evidence_get_mac ($h) {
 
-	$out .= '<table class="cactiTable"><tr>';
+	$return = array();
+
+	$macs = @cacti_snmp_walk($h['hostname'], $h['snmp_community'], '.1.3.6.1.2.1.2.2.1.6', 
+		$h['snmp_version'],$h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'],
+		$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],$h['snmp_context'], 
+		$h['snmp_port'], $h['snmp_timeout']);
 
 	foreach ($macs as $mac) {
 		if (strlen($mac['value']) > 1) {
-			$out .= '<td>' . $mac['value'] . '</td>';
-			if ($count == 5) {
-				$out .= '</tr><tr>';
-				$count = 0;
-			}
-			else {
-				$count++;
+			$mac = plugin_evidence_normalize_mac($mac['value']);
+			if (!in_array($mac, $return)) {
+				$return[] = $mac;
 			}
 		}
 	}
 
-	$out .= '</tr></table>';
-	$out .= '<br/><br/>';
+	return $return;
+}
 
+function plugin_evidence_normalize_mac ($mac_address) {
+
+        $mac_address = trim($mac_address);
+
+        if (strlen($mac_address) > 10) {
+                $max_address = str_replace(array('"', ' ', '-'), array('',  ':', ':'), $mac_address);
+        } else { /* return is hex */
+                $mac = '';
+
+                for ($j = 0; $j < strlen($mac_address); $j++) {
+                        $mac .= bin2hex($mac_address[$j]) . ':';
+                }
+
+                $mac_address = $mac;
+        }
+
+        return strtoupper($mac_address);
+}
+
+
+
+function plugin_evidence_get_data_specific ($h) {
+/*
 	$out .= '<b>Vendor specific:</b><br/>';
 
 	$steps = db_fetch_assoc_prepared ('SELECT * FROM plugin_evidence_steps WHERE org_id = ? AND mandatory = "yes" ORDER BY method',
-		array($id_org));
+		array($org_id));
 	foreach ($steps as $step) {
 		if (cacti_sizeof($step)) {
 			if ($step['method'] == 'info') {
 				$out .= 'Info: ' . $step['description'] . '<br/>';
 			}
 			if ($step['method'] == 'get') {
-				$data = @cacti_snmp_get($host['hostname'], $host['snmp_community'],
-					$step['oid'], $host['snmp_version'],
-					$host['snmp_username'], $host['snmp_password'], $host['snmp_auth_protocol'],
-					$host['snmp_priv_passphrase'], $host['snmp_priv_protocol'],
-					$host['snmp_context'], $host['snmp_port'], $host['snmp_timeout']);
+				$data = @cacti_snmp_get($h['hostname'], $h['snmp_community'],
+					$step['oid'], $h['snmp_version'],
+					$h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'],
+					$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],
+					$h['snmp_context'], $h['snmp_port'], $h['snmp_timeout']);
 
 				if (preg_match ('#' . $step['result'] . '#', $data, $matches) !== false) {
 					$out .= ucfirst($step['description']) . ': ' . $matches[0] . '<br/>';
@@ -289,11 +352,11 @@ function plugin_evidence_get_data($host) {
 				}
 			}
 			if ($step['method'] == 'walk') {
-				$data = @cacti_snmp_walk($host['hostname'], $host['snmp_community'],
-						$step['oid'], $host['snmp_version'],
-						$host['snmp_username'], $host['snmp_password'], $host['snmp_auth_protocol'],
-						$host['snmp_priv_passphrase'], $host['snmp_priv_protocol'],
-						$host['snmp_context'], $host['snmp_port'], $host['snmp_timeout']);
+				$data = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],
+						$step['oid'], $h['snmp_version'],
+						$h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'],
+						$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],
+						$h['snmp_context'], $h['snmp_port'], $h['snmp_timeout']);
 
 				if (cacti_sizeof($data) > 0) {
 					foreach ($data as $row) {
@@ -326,11 +389,11 @@ function plugin_evidence_get_data($host) {
 
 				foreach ($oid_suff as $i) {
 
-					$data[$i] = @cacti_snmp_walk($host['hostname'], $host['snmp_community'],
-						$step['oid'] . '.' . $i, $host['snmp_version'],
-						$host['snmp_username'], $host['snmp_password'], $host['snmp_auth_protocol'],
-						$host['snmp_priv_passphrase'], $host['snmp_priv_protocol'],
-						$host['snmp_context'], $host['snmp_port'], $host['snmp_timeout']);
+					$data[$i] = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],
+						$step['oid'] . '.' . $i, $h['snmp_version'],
+						$h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'],
+						$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],
+						$h['snmp_context'], $h['snmp_port'], $h['snmp_timeout']);
 					$last = $i;
 				}
 
@@ -354,6 +417,7 @@ function plugin_evidence_get_data($host) {
 	$out .= '<br/><br/>';
 
 	return ($out);
+*/
 }
 
 

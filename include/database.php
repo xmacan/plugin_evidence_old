@@ -51,9 +51,10 @@ function plugin_evidence_initialize_database() {
 
 	$data = array();
 	$data['columns'][] = array('name' => 'host_id', 'type' => 'int(11)', 'NULL' => false);
-	$data['columns'][] = array('name' => 'index', 'type' => 'int(11)', 'NULL' => false);
 	$data['columns'][] = array('name' => 'organization_id', 'type' => 'int(11)', 'NULL' => false, 'default' => null);
 	$data['columns'][] = array('name' => 'organization_name', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+
+	$data['columns'][] = array('name' => 'index', 'type' => 'int(11)', 'NULL' => false);
 	$data['columns'][] = array('name' => 'descr', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
 	$data['columns'][] = array('name' => 'name', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
 	$data['columns'][] = array('name' => 'hardware_rev', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
@@ -65,13 +66,27 @@ function plugin_evidence_initialize_database() {
 	$data['columns'][] = array('name' => 'alias', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
 	$data['columns'][] = array('name' => 'asset_id', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
 	$data['columns'][] = array('name' => 'mfg_date', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
-	$data['columns'][] = array('name' => 'mfg_date', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'uuid', 'type' => 'varchar(255)', 'NULL' => false, 'default' => null);
 	$data['columns'][] = array('name' => 'scan_date', 'type' => 'timestamp', 'NULL' => false, 'default' => '0000-00-00 00:00:00');
-	$data['primary'] = 'host_id';
 
 	$data['type'] = 'InnoDB';
 	$data['comment'] = 'evidence entity mib data';
 	api_plugin_db_table_create ('evidence', 'plugin_evidence_history', $data);
+
+
+	$data = array();
+	$data['columns'][] = array('name' => 'host_id', 'type' => 'int(11)', 'NULL' => false);
+	$data['columns'][] = array('name' => 'mac', 'type' => 'varchar(17)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'scan_date', 'type' => 'timestamp', 'NULL' => false, 'default' => '0000-00-00 00:00:00');
+
+	$data['type'] = 'InnoDB';
+	$data['comment'] = 'evidence entity mac address';
+	api_plugin_db_table_create ('evidence', 'plugin_evidence_mac', $data);
+
+
+
+
+
 
 	// vendor specific
 	// 3Com/H3C
