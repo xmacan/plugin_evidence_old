@@ -35,7 +35,7 @@ function plugin_evidence_poller_bottom() {
 		$command_string = 'php';
 	}
 
-	$extra_args = ' -q ' . $config['base_path'] . '/plugins/evidence/poller_evidence.php';
+	$extra_args = ' -q ' . $config['base_path'] . '/plugins/evidence/poller_evidence.php --host-id=all';
 
 	exec_background($command_string, $extra_args);
 }
@@ -76,14 +76,15 @@ function plugin_evidence_device_edit_top_links (){
 
 function plugin_evidence_host_edit_bottom () {
 	global $config;
-	print get_md5_include_js($config['base_path'].'/plugins/evidence/evidence.js');
+	print get_md5_include_js($config['base_path'] . '/plugins/evidence/evidence.js');
 }
 
 function evidence_import_enterprise_numbers() {
+	global $config;
 
 	$i = 0;
 
-	$file = fopen('data/enterprise-numbers.sql','r');
+	$file = fopen($config['base_path'] . '/plugins/evidence/data/enterprise-numbers.sql','r');
 
 	if ($file) {
 
@@ -92,13 +93,14 @@ function evidence_import_enterprise_numbers() {
 			db_execute($line);
 			$i++;
 		}
-
-		fclose ($file);
-		return true;
-
 	} else {
 		return false;
 	}
+
+	fclose ($file);
+
+	return $i;
+
 }
 
 function plugin_evidence_get_allowed_devices($user_id, $array = false) {
@@ -126,18 +128,30 @@ function plugin_evidence_get_allowed_devices($user_id, $array = false) {
 	}
 }
 
+function plugin_evidence_find_organization ($h) {
+
+	cacti_oid_numeric_format();
+
+	$sys_object_id = @cacti_snmp_get($h['hostname'], $h['snmp_community'],
+		'.1.3.6.1.2.1.1.2.0', $h['snmp_version'],
+		$h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'],
+		$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],
+		$h['snmp_context'], $h['snmp_port'], $h['snmp_timeout'],0);
+
+	if (!isset($sys_object_id) || $sys_object_id == 'U') {
+		return false;
+	}
+
+	preg_match('/^([a-zA-Z0-9\.: ]+)\.1\.3\.6\.1\.4\.1\.([0-9]+)[a-zA-Z0-9\. ]*$/', $sys_object_id, $match);
+	return $match[2];
+}
 
 function plugin_evidence_get_data($h) {
 	global $config;
 
-
-	include_once($config['library_path'] . '/snmp.php');
-
 	$return = array(
 		'result' => true,
 		'error'  => '',
-		'org_id' => '',
-		'org_name' => '',
 		'data'   => array()
 	);
 
@@ -150,35 +164,7 @@ function plugin_evidence_get_data($h) {
 		return $return;
 	}
 
-	/* find organization */
-
-	cacti_oid_numeric_format();
-
-	$sys_object_id = @cacti_snmp_get($h['hostname'], $h['snmp_community'],
-		'.1.3.6.1.2.1.1.2.0', $h['snmp_version'],
-		$h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'],
-		$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],
-		$h['snmp_context'], $h['snmp_port'], $h['snmp_timeout'],0);
-
-	if (!isset($sys_object_id) || $sys_object_id == 'U') {
-		$return['result'] = false;
-		$return['error'] = 'Cannot determine sysObjectID, is snmp configured correctly? Maybe host down.';
-		return $return;
-	}
-
-	$return['data']['organization_id'] = $sys_object_id;
-
-	preg_match('/^([a-zA-Z0-9\.: ]+)\.1\.3\.6\.1\.4\.1\.([0-9]+)[a-zA-Z0-9\. ]*$/', $sys_object_id, $match);
-	$org_id = $match[2];
-
-	$org = db_fetch_cell_prepared ('SELECT organization 
-		FROM plugin_evidence_organizations 
-		WHERE id = ?',
-		array($org_id));
-
-	$return['org_name'] = $org;
-	$return['org_id'] = $org_id;
-
+	// gathering data from entity mib
 	$indexes = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.1',
 		$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], 
 		$h['snmp_auth_protocol'], $h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], 
@@ -328,10 +314,17 @@ function plugin_evidence_normalize_mac ($mac_address) {
 
 
 function plugin_evidence_get_data_specific ($h) {
-/*
-	$out .= '<b>Vendor specific:</b><br/>';
 
-	$steps = db_fetch_assoc_prepared ('SELECT * FROM plugin_evidence_steps WHERE org_id = ? AND mandatory = "yes" ORDER BY method',
+//	include_once($config['library_path'] . '/snmp.php');
+
+	$return = array(
+		'result' => true,
+		'error'  => '',
+		'data'   => array()
+	);
+
+	$steps = db_fetch_assoc_prepared ('SELECT * FROM plugin_evidence_steps 
+		WHERE org_id = ? AND mandatory = "yes" ORDER BY method',
 		array($org_id));
 	foreach ($steps as $step) {
 		if (cacti_sizeof($step)) {
@@ -417,7 +410,7 @@ function plugin_evidence_get_data_specific ($h) {
 	$out .= '<br/><br/>';
 
 	return ($out);
-*/
+
 }
 
 
