@@ -41,16 +41,13 @@ function plugin_evidence_config_settings() {
 			),
 			'default'       => '24',
 		),
-
 		'evidence_base_time' => array(
-			'friendly_name' => 'Excluded notification Host IDs',
+			'friendly_name' => 'When evidence will be started',
 			'description'   => 'The Base Time for gather data to occur.  For example, if you use \'12:00am\' and you choose once per day, the action would begin at approximately midnight every day.',
 			'method'        => 'textbox',
 			'max_length'	=> '10',
 			'default'       => '01:30am',
 		),
-
-
 		'evidence_records' => array(
 		'friendly_name' => 'How many changes store in database',
 			'description'   => 'If data gathering is enabled,  you can specify how many history (changed) records keep for each device',
@@ -83,7 +80,6 @@ function plugin_evidence_config_settings() {
 			'max_length'	=> '500',
 			'default'       => '',
 		),
-
 	);
 }
 
