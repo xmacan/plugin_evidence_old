@@ -252,18 +252,19 @@ function plugin_evidence_get_data($h) {
 			}
 
 			$entity[$val['value']] = array (
-				isset($data_descr[$key]['value']) ? $data_descr[$key]['value'] : '',
-				isset($data_name[$key]['value']) ? $data_name[$key]['value'] : '',
-				isset($data_hardware_rev[$key]['value']) ? $data_hardware_rev[$key]['value'] : '',
-				isset($data_firmware_rev[$key]['value']) ? $data_firmware_rev[$key]['value'] : '',
-				isset($data_software_rev[$key]['value']) ? $data_software_rev[$key]['value'] : '',
-				isset($data_serial_num[$key]['value']) ? $data_serial_num[$key]['value'] : '',
-				isset($data_mfg_name[$key]['value']) ? $data_mfg_name[$key]['value'] : '',
-				isset($data_model_name[$key]['value']) ? $data_model_name[$key]['value'] : '',
-				isset($data_alias[$key]['value']) ? $data_alias[$key]['value'] : '',
-				isset($data_asset_id[$key]['value']) ? $data_asset_id[$key]['value'] : '',
-				$date,
-				isset($data_uuid[$key]['value']) ? $data_uuid[$key]['value'] : ''
+				'index'        => isset($indexes[$key]['value']) ? $indexes[$key]['value'] : '',
+				'descr'        => isset($data_descr[$key]['value']) ? $data_descr[$key]['value'] : '',
+				'name'         => isset($data_name[$key]['value']) ? $data_name[$key]['value'] : '',
+				'hardware_rev' => isset($data_hardware_rev[$key]['value']) ? $data_hardware_rev[$key]['value'] : '',
+				'firmware_rev' => isset($data_firmware_rev[$key]['value']) ? $data_firmware_rev[$key]['value'] : '',
+				'software_rev' => isset($data_software_rev[$key]['value']) ? $data_software_rev[$key]['value'] : '',
+				'serial_num'   => isset($data_serial_num[$key]['value']) ? $data_serial_num[$key]['value'] : '',
+				'mfg_name'     => isset($data_mfg_name[$key]['value']) ? $data_mfg_name[$key]['value'] : '',
+				'model_name'   => isset($data_model_name[$key]['value']) ? $data_model_name[$key]['value'] : '',
+				'alias'        => isset($data_alias[$key]['value']) ? $data_alias[$key]['value'] : '',
+				'asset_id'     => isset($data_asset_id[$key]['value']) ? $data_asset_id[$key]['value'] : '',
+				'mfg_date'     => $date,
+				'uuid'         => isset($data_uuid[$key]['value']) ? $data_uuid[$key]['value'] : ''
 				);
 		}
 
@@ -292,6 +293,8 @@ function plugin_evidence_get_mac ($h) {
 				$return[] = $mac;
 			}
 		}
+
+		sort($return);
 	}
 
 	return $return;
@@ -322,11 +325,7 @@ function plugin_evidence_normalize_mac ($mac_address) {
 
 function plugin_evidence_get_data_specific ($h) {
 
-	$return = array(
-		'result' => true,
-		'error'  => '',
-		'data'   => array()
-	);
+	$data_spec = array();
 
 	$steps = db_fetch_assoc_prepared ('SELECT * FROM plugin_evidence_specific
 		WHERE org_id = ? AND mandatory = "yes"
@@ -336,11 +335,9 @@ function plugin_evidence_get_data_specific ($h) {
 	$i = 0;
 
 	foreach ($steps as $step) {
-		if ($step['method'] == 'info') {
-			$return['data'][$i]['value'] = $step['description'];
-		}
 		if ($step['method'] == 'get') {
-			$return['data'][$i]['description'] = $step['description'];
+			$data_spec[$i]['description'] = $step['description'];
+			$data_spec[$i]['oid'] = $step['oid'];
 
 			$data = @cacti_snmp_get($h['hostname'], $h['snmp_community'], $step['oid'],
 				$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], 
@@ -348,13 +345,16 @@ function plugin_evidence_get_data_specific ($h) {
 				$h['snmp_context'], $h['snmp_port'], $h['snmp_timeout']);
 
 			if (preg_match ('#' . $step['result'] . '#', $data, $matches) !== false) {
-				$return['data'][$i]['value'] = $matches[0];
+				$data_spec[$i]['value'] = $matches[0];
 			} else {
-				$return['data'][$i]['value'] = $data . ' (cannot find specified regexp, so display all ';
+				$data_spec[$i]['value'] = $data . ' (cannot find specified regexp, so display all ';
 			}
+			
+			$i++;
 		}
-		if ($step['method'] == 'walk') {
-			$return['data'][$i]['description'] = $step['description'];
+		elseif ($step['method'] == 'walk') {
+			$data_spec[$i]['description'] = $step['description'];
+			$data_spec[$i]['oid'] = $step['oid'];
 
 			$data = @cacti_snmp_walk($h['hostname'], $h['snmp_community'], $step['oid'],
 				$h['snmp_version'],$h['snmp_username'], $h['snmp_password'],
@@ -365,49 +365,45 @@ function plugin_evidence_get_data_specific ($h) {
 				foreach ($data as $row) {
 					if (preg_match ('#' . $step['result'] . '#', $row['value'], $matches) !== false) {
 						if (strlen($matches[0]) > 0) {
-							$return['data'][$i]['value'][] = $matches[0];
+							$data_spec[$i]['value'][] = $matches[0];
 						}
 					} else {
+						$data_spec[$i]['value'] = $data . ' (cannot find specified regexp, so display all ';
 					}
 				}
 			} else {
 				//!!! tohle taky evidovat?
 //				$out .= "I don't know, how to get the information about " . $step['description'] . "<br/>";
 			}
-		}
-		if ($step['method'] == 'table') {
-			$return['data'][$i]['description'] = $step['description'];
+			$i++;
+		} elseif ($step['method'] == 'table') {
+
 			$ind_des = explode (',', $step['table_items']);
+
 			foreach ($ind_des as $a) {
 				list ($in,$d) = explode ('-', $a);
 				$oid_suff[] = $in;
 				$desc[] = $d;
 			}
 
-			$return['data'][$i]['value']['arr_desc'] = $desc;
-//!! tohle hodne porovnat se snver
+			foreach ($oid_suff as $key => $in) {
+				$data_spec[$i]['description'] = $desc[$key];
+				$data_spec[$i]['oid'] = $step['oid'] . '.' . $in;
 
-			foreach ($oid_suff as $in) {
-
-				$data[$in] = @cacti_snmp_walk($h['hostname'], $h['snmp_community'], $step['oid'] . '.' . $in,
-					$h['snmp_version'], $h['snmp_username'], $h['snmp_password'],
-					$h['snmp_auth_protocol'], $h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],
+				$data[$in] = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],
+					$step['oid'] . '.' . $in, $h['snmp_version'],
+					$h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'],
+					$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],
 					$h['snmp_context'], $h['snmp_port'], $h['snmp_timeout']);
-				$last = $in;
-			}
 
-			// display columns as rows only
-			for ($f = 0; $f < count($data[$last]);$f++) {
+				$data_spec[$i]['value'] = array_column($data[$in],'value');
 
-				foreach ($oid_suff as $in) {
-				}
+				$i++;
 			}
 		}
-
-		$i++;
 	}
 
-	return $return;
+	return $data_spec;
 }
 
 
@@ -421,11 +417,7 @@ function plugin_evidence_get_data_specific ($h) {
 function plugin_evidence_get_data_optional($h) {
 	global $config;
 
-	$return = array(
-		'result' => true,
-		'error'  => '',
-		'data'   => array()
-	);
+	$data_opt = array();
 
 	$steps = db_fetch_assoc_prepared ('SELECT * FROM plugin_evidence_specific 
 		WHERE org_id = ? AND 
@@ -437,12 +429,8 @@ function plugin_evidence_get_data_optional($h) {
 
 	foreach ($steps as $step) {
 	
-		if ($step['method'] == 'info') {
-			$out .= 'Info: ' . $step['description'] . '<br/>';
-			$return['data'][$i]['value'] = $step['description'];
-		}
-		elseif ($step['method'] == 'get') {
-			$return['data'][$i]['description'] = $step['description'];
+		if ($step['method'] == 'get') {
+			$data_opt[$i]['description'] = $step['description'];
 
 			$data = @cacti_snmp_get($h['hostname'], $h['snmp_community'], $step['oid'],
 				$h['snmp_version'], $h['snmp_username'], $h['snmp_password'],
@@ -450,12 +438,15 @@ function plugin_evidence_get_data_optional($h) {
 				$h['snmp_context'], $h['snmp_port'], $h['snmp_timeout']);
 
 			if (preg_match ('#' . $step['result'] . '#', $data, $matches) !== false) {
-				$return['data'][$i]['value'] = $matches[0];
+				$data_opt[$i]['value'] = $matches[0];
 			} else {
-				$return['data'][$i]['value'] = $data . ' (cannot find specified regexp, so display all ';
+				$data_opt[$i]['value'] = $data . ' (cannot find specified regexp, so display all ';
 			}
+			$i++;
+
 		} elseif ($step['method'] == 'walk') {
-			$return['data'][$i]['description'] = $step['description'];
+			$data_opt[$i]['description'] = $step['description'];
+
 			$data = @cacti_snmp_walk($h['hostname'], $h['snmp_community'], $step['oid'],
 					$h['snmp_version'], $h['snmp_username'], $h['snmp_password'],
 					$h['snmp_auth_protocol'], $h['snmp_priv_passphrase'],
@@ -466,28 +457,29 @@ function plugin_evidence_get_data_optional($h) {
 				foreach ($data as $row) {
 					if (preg_match ('#' . $step['result'] . '#', $row['value'], $matches) !== false) {
 						if (strlen($matches[0]) > 0) {
-							$return['data'][$i]['value'][] = $matches[0];
+							$data_opt[$i]['value'][] = $matches[0];
 						}
 					} else {
-						$return['data'][$i]['value'][] = $row['value'] . ' (cannot find specified regexp, so display all)';
+						$data_opt[$i]['value'][] = $row['value'] . ' (cannot find specified regexp, so display all)';
 					}
 				}
 			} else {
 //!! tohle taky?				$out .= "I don't know, how to get the information about " . $step['description'] . "<br/>";
 			}
+			$i++;
 		} elseif ($step['method'] == 'table') {
-			$return['data']['description'] = $step['description'];
 
 			$ind_des = explode (',', $step['table_items']);
+
 			foreach ($ind_des as $a) {
 				list ($in,$d) = explode ('-', $a);
 				$oid_suff[] = $in;
 				$desc[] = $d;
 			}
 
-			$return['data'][$i]['value']['arr_desc'] = $desc;
-
-			foreach ($oid_suff as $in) {
+			foreach ($oid_suff as $key => $in) {
+				$data_opt[$i]['description'] = $desc[$key];
+				$data_opt[$i]['oid'] = $step['oid'] . '.' . $in;
 
 				$data[$in] = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],
 					$step['oid'] . '.' . $in, $h['snmp_version'],
@@ -495,21 +487,13 @@ function plugin_evidence_get_data_optional($h) {
 					$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],
 					$h['snmp_context'], $h['snmp_port'], $h['snmp_timeout']);
 
-				$last = $in;
-			}
-
-			// display columns as rows only
-			for ($f = 0; $f < count($data[$last]);$f++) {
-				foreach ($oid_suff as $in) {
-					$return['data'][$i]['value']['arr_data'] = $data[$in][$f]['value'];
-				}
+				$data_opt[$i]['value'] = array_column($data[$in],'value');
+				$i++;
 			}
 		}
-
-		$i++;
 	}
 
-	return $return;
+	return $data_opt;
 }
 
 

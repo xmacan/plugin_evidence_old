@@ -76,22 +76,29 @@ function plugin_evidence_initialize_database() {
 
 	$data = array();
 	$data['columns'][] = array('name' => 'host_id', 'type' => 'int(11)', 'NULL' => false);
-	$data['columns'][] = array('name' => 'mac', 'type' => 'varchar(17)', 'NULL' => false, 'default' => null);
+	$data['columns'][] = array('name' => 'oid', 'type' => 'varchar(255)', 'default' => null);
+	$data['columns'][] = array('name' => 'index', 'type' => 'int(11)', 'default' => null);
+	$data['columns'][] = array('name' => 'descr', 'type' => 'varchar(255)', 'default' => null);
+	$data['columns'][] = array('name' => 'value', 'type' => 'varchar(255)', 'default' => null);
+	$data['columns'][] = array('name' => 'mandatory', 'type' => 'enum("yes","no")', 'default' => 'yes', 'NULL' => false);
+	$data['columns'][] = array('name' => 'scan_date', 'type' => 'timestamp', 'NULL' => false, 'default' => '0000-00-00 00:00:00');
+
+	$data['type'] = 'InnoDB';
+	$data['comment'] = 'evidence vendor specific data';
+	api_plugin_db_table_create ('evidence', 'plugin_evidence_vendor_specific', $data);
+
+
+
+	$data = array();
+	$data['columns'][] = array('name' => 'host_id', 'type' => 'int(11)', 'NULL' => false);
+	$data['columns'][] = array('name' => 'mac', 'type' => 'varchar(17)', 'default' => null);
 	$data['columns'][] = array('name' => 'scan_date', 'type' => 'timestamp', 'NULL' => false, 'default' => '0000-00-00 00:00:00');
 
 	$data['type'] = 'InnoDB';
 	$data['comment'] = 'evidence entity mac address';
 	api_plugin_db_table_create ('evidence', 'plugin_evidence_mac', $data);
 
-
-
-
 	// vendor specific
-	// 3Com/H3C
-	db_execute ("INSERT INTO plugin_evidence_specific (org_id,description,oid,result,method)
-		VALUES (25506,'3Com/H3C/HPE','','','info')");
-	db_execute ("INSERT INTO plugin_evidence_specific (org_id,description,oid,result,method)
-		VALUES (11,'3Com/H3C/HPE','','','info')");
 
 	// Aruba/HPE
 	db_execute ("INSERT INTO plugin_evidence_specific (org_id,description,oid,result,method)
@@ -145,9 +152,7 @@ function plugin_evidence_initialize_database() {
 	db_execute ("INSERT INTO plugin_evidence_specific (org_id,description,oid,result,method,table_items)
 		VALUES (24681,'hw disks','1.3.6.1.4.1.24681.1.3.11.1','.*','table','2-name,5-type,3-temp,7-smart')");
 
-	// Synology
-	db_execute ("INSERT INTO plugin_evidence_specific (org_id,description,oid,result,method)
-		VALUES (8072,'Info - Synology has OrgID 6574, but uses 8072','','','info')");
+	// Synology - Info - Synology has OrgID 6574, but uses 8072
 	db_execute ("INSERT INTO plugin_evidence_specific (org_id,description,oid,result,method)
 		VALUES (8072,'serial','SNMPv2-SMI::enterprises.6574.1.5.2.0','.*','get')");
 	db_execute ("INSERT INTO plugin_evidence_specific (org_id,description,oid,result,method)
