@@ -170,14 +170,38 @@ function plugin_evidence_get_data($h) {
 	}
 
 	// gathering data from entity mib
-	$indexes = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.1',
+	$indexes = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'.1.3.6.1.2.1.47.1.1.1.1.1',
 		$h['snmp_version'], $h['snmp_username'], $h['snmp_password'], 
 		$h['snmp_auth_protocol'], $h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], 
 		$h['snmp_context'], $h['snmp_port'], $h['snmp_timeout']);
 
-	if (cacti_sizeof($indexes) > 0) {
+	/* Some devides doesn't use index, trying normal data */
+	if (!cacti_sizeof($indexes)) { 
 
-		// index uz mam
+		evidence_debug('Host ' . $h['id'] . ' doesn\'t use index, trying data directly');
+
+		$data_descr = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'.1.3.6.1.2.1.47.1.1.1.1.2',
+			$h['snmp_version'], $h['snmp_username'], $h['snmp_password'],$h['snmp_auth_protocol'],
+			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'],
+			$h['snmp_port'], $h['snmp_timeout']);
+
+		if (cacti_sizeof($data_descr) > 0) {
+			evidence_debug('Host ' . $h['id'] . ' data without index, creating fakeindex');
+			$i = 0;
+			foreach ($data_descr as $key => $val) {
+				
+				$tmp = substr(strrchr($val['oid'], '.'),1);
+				$indexes[$i]['oid'] = '.1.3.6.1.2.1.47.1.1.1.1.2.' . $tmp;
+				$indexes[$i]['value'] = $tmp;
+				$i++;
+			}
+		}
+	}
+
+//!! nekde nemam . na zacatku oid
+
+	if (cacti_sizeof($indexes) > 0 || cacti_sizeof($data_descr)) {
+
 		$data_descr = @cacti_snmp_walk($h['hostname'], $h['snmp_community'],'1.3.6.1.2.1.47.1.1.1.1.2', 
 			$h['snmp_version'], $h['snmp_username'], $h['snmp_password'],$h['snmp_auth_protocol'], 
 			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'], 
@@ -238,6 +262,7 @@ function plugin_evidence_get_data($h) {
 			$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'], $h['snmp_context'], 
 			$h['snmp_port'], $h['snmp_timeout']);
 
+
 		foreach ($indexes as $key => $val) {
 			$date = '';
 
@@ -270,7 +295,7 @@ function plugin_evidence_get_data($h) {
 
 	$return['data'] = $entity;
 	}
-
+	
 	return $return;
 }
 
