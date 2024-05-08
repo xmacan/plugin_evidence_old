@@ -23,8 +23,6 @@
  +-------------------------------------------------------------------------+
 */
 
-//!!! evidence v nazvu tabu ma male e
-
 function plugin_evidence_install () {
 
 	api_plugin_register_hook('evidence', 'device_edit_top_links', 'plugin_evidence_device_edit_top_links', 'include/functions.php');
@@ -33,7 +31,7 @@ function plugin_evidence_install () {
 	api_plugin_register_hook('evidence', 'host_device_remove', 'plugin_evidence_device_remove', 'include/functions.php');
 	api_plugin_register_hook('evidence', 'config_settings', 'plugin_evidence_config_settings', 'include/settings.php');
 	api_plugin_register_hook('evidence', 'poller_bottom', 'plugin_evidence_poller_bottom', 'include/functions.php');
-	// only for jquery script
+// !!! only for jquery script
 	api_plugin_register_hook('evidence', 'host_edit_bottom', 'plugin_evidence_host_edit_bottom', 'include/functions.php');
 
 	api_plugin_register_realm('evidence', 'evidence.php,evidence_tab.php,', 'Plugin evidence - view', 1);
@@ -41,21 +39,27 @@ function plugin_evidence_install () {
 	plugin_evidence_setup_database();
 }
 
-
-
-
 function plugin_evidence_uninstall () {
 
-	if (sizeof(db_fetch_assoc("SHOW TABLES LIKE 'plugin_evidence_steps'")) > 0 ) {
-		db_execute("DROP TABLE `plugin_evidence_steps`");
-	}
-	if (sizeof(db_fetch_assoc("SHOW TABLES LIKE 'plugin_evidence_organizations'")) > 0 ) {
-		db_execute("DROP TABLE `plugin_evidence_organizations`");
-	}
-	if (sizeof(db_fetch_assoc("SHOW TABLES LIKE 'plugin_evidence_history'")) > 0 ) {
-		db_execute("DROP TABLE `plugin_evidence_history`");
+	if (sizeof(db_fetch_assoc("SHOW TABLES LIKE 'plugin_evidence_specific_query'")) > 0 ) {
+		db_execute("DROP TABLE `plugin_evidence_specific_query`");
 	}
 
+	if (sizeof(db_fetch_assoc("SHOW TABLES LIKE 'plugin_evidence_organization'")) > 0 ) {
+		db_execute("DROP TABLE `plugin_evidence_organization`");
+	}
+
+	if (sizeof(db_fetch_assoc("SHOW TABLES LIKE 'plugin_evidence_entity'")) > 0 ) {
+		db_execute("DROP TABLE `plugin_evidence_entity`");
+	}
+
+	if (sizeof(db_fetch_assoc("SHOW TABLES LIKE 'plugin_evidence_mac'")) > 0 ) {
+		db_execute("DROP TABLE `plugin_evidence_mac`");
+	}
+
+	if (sizeof(db_fetch_assoc("SHOW TABLES LIKE 'plugin_evidence_vendor_specific'")) > 0 ) {
+		db_execute("DROP TABLE `plugin_evidence_vendor_specific`");
+	}
 }
 
 
@@ -83,5 +87,3 @@ function plugin_evidence_setup_database() {
 	include_once($config['base_path'] . '/plugins/evidence/include/database.php');
 	plugin_evidence_initialize_database();
 }
-
-

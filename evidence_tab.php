@@ -106,9 +106,6 @@ function display_evidence_form() {
 			print $actual_info;
 			print '<br/><br/>';
 
-			$optional = plugin_evidence_get_info_optional($host_id);
-			print $optional;
-			print '<br/><br/>';
 		}
 
 		if ($evidence_records > 0) {

@@ -18,7 +18,7 @@ if ($file) {
 		$line4 = fgets($file);
 	
 		if (!empty($line1) || !empty($line2)) {
-			fwrite ($output, "INSERT INTO plugin_evidence_organizations (id, organization) VALUES ('$line1','$line2');" . PHP_EOL);
+			fwrite ($output, "INSERT INTO plugin_evidence_organization (id, organization) VALUES ('$line1','$line2');" . PHP_EOL);
 			$i++;
 		}
 	}

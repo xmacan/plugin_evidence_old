@@ -30,32 +30,39 @@ include_once('./plugins/evidence/include/functions.php');
 
 $evidence_records = read_config_option('evidence_records');
 
-$id = get_filter_request_var('host_id', FILTER_VALIDATE_INT);
+$id = get_filter_request_var('host_id');
 
-$alive = db_fetch_row_prepared ("SELECT * FROM host 
-			WHERE id = ? AND disabled != 'on' AND status BETWEEN 2 AND 3", array($id));
+$allowed = plugin_evidence_get_allowed_devices($_SESSION['sess_user_id'], true);
 
-if (!$alive) {
-	print 'Disabled/down device. No actual data.<br/><br/>';
+if (is_array($allowed) && in_array($id, $allowed)) {
 
-	if ($evidence_records > 0) {
-		print plugin_evidence_get_history($id,$out);
+	$host = db_fetch_row_prepared ("SELECT *
+		FROM host
+		WHERE id = ? AND
+		disabled != 'on' AND
+		status BETWEEN 2 AND 3",
+		array($id));
+
+	if (!$host) {
+		print __('Disabled/down device. No actual data', 'evidence') . '<br/>';
+
+		if ($evidence_records > 0) {
+			print_r (plugin_evidence_history($id), true);
+		} else {
+			print 'History data store disabled';
+		}
 	} else {
-		print 'History data store disabled';
+		print_r (plugin_evidence_actual_data($host), true);
+
+		print '<br/><br/>';
+
+		if ($evidence_records > 0) {
+			print_r (plugin_evidence_history($id), true);
+		} else {
+			print __('History data store disabled', 'evidence');
+		}
 	}
 } else {
-	$out = plugin_evidence_get_info($id);
-	print $out;
-	print '<br/><br/>';
-
-	$out = plugin_evidence_get_info_optional($id);
-	print $out;
-	print '<br/><br/>';
-
-	if ($evidence_records > 0) {
-		print plugin_evidence_get_history($id,$out);
-	} else {
-		print 'History data store disabled';
-	}
+	print __('Permission issue', 'evidence');
 }
 

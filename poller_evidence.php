@@ -187,7 +187,7 @@ if (cacti_sizeof($hosts) > 0) {
 
 		evidence_debug('Host ' . $host['id'] . ' trying ENTITY MIB');
 
-		$data_entity = plugin_evidence_get_data($host);
+		$data_entity = plugin_evidence_get_entity_data($host);
 		evidence_debug('Host ' . $host['id'] . ' returned ' . cacti_sizeof($data_entity) . ' records');
 
 		$data_mac = plugin_evidence_get_mac($host);
@@ -444,8 +444,6 @@ if (cacti_sizeof($hosts) > 0) {
 }
 
 
-
-
 $poller_end = microtime(true);
 
 $pstats = 'Time:' . round($poller_end-$poller_start, 2) . ', Devices:' . $devices . ' Entity rec:' . $rec_entity . 
@@ -496,11 +494,9 @@ function display_help() {
 
 
 
-function plugin_evidence_timeToRun() {
+function plugin_evidence_time_to_run() {
 	global $forcerun;
 
-// batch - every 6 hod
-// base time 12:50pm
 	$lastrun   = read_config_option('plugin_evidence_lastrun');
 	$frequency = read_config_option('evidence_frequency') * 3600;
 	$basetime  = strtotime(read_config_option('evidence_base_time'));
@@ -508,28 +504,27 @@ function plugin_evidence_timeToRun() {
 	$baselower = $basetime - 300;
 	$now       = time();
 
-	debug("LastRun:'$lastrun', Frequency:'$frequency', BaseTime:'" . date('Y-m-d H:i:s', $basetime) . "', BaseUpper:'$baseupper', BaseLower:'$baselower', Now:'" . date('Y-m-d H:i:s', $now) . "'");
+	evidence_debug("LastRun:'$lastrun', Frequency:'$frequency' sec, BaseTime:'" . date('Y-m-d H:i:s', $basetime) . "', BaseUpper:'$baseupper', BaseLower:'$baselower', Now:'" . date('Y-m-d H:i:s', $now) . "'");
 
 	if ($frequency > 0 && ($now - $lastrun > $frequency)) {
-		debug("Frequency is '$frequency' Seconds");
-
 		if (empty($lastrun) && ($now < $baseupper) && ($now > $baselower)) {
-			debug('Time to Run');
+
+			evidence_debug('Time to firts run');
 			db_execute_prepared('REPLACE INTO settings (name,value) VALUES ("plugin_evidence_lastrun", ?)', array(time()));
 
 			return true;
 		} elseif (($now - $lastrun > $frequency) && ($now < $baseupper) && ($now > $baselower)) {
-			debug('Time to Run');
+			evidence_debug('Time to periodic Run');
 			db_execute_prepared('REPLACE INTO settings (name,value) VALUES ("plugin_evidence_lastrun", ?)', array(time()));
 
 			return true;
 		} else {
-			debug('Not Time to Run');
+			evidence_debug('Not Time to Run');
 
 			return false;
 		}
 	} elseif ($forcerun) {
-		debug('Force to Run');
+		evidence_debug('Force to Run');
 		db_execute_prepared('REPLACE INTO settings (name,value) VALUES ("plugin_evidence_lastrun", ?', array(time()));
 
 		return true;

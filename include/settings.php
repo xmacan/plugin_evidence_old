@@ -26,7 +26,7 @@
 function plugin_evidence_config_settings() {
 	global $tabs, $settings, $config;
 
-	$tabs['evidence'] = 'evidence';
+	$tabs['evidence'] = 'Evidence';
 
 	$settings['evidence'] = array(
 		'evidence_frequency' => array(
@@ -36,7 +36,7 @@ function plugin_evidence_config_settings() {
 			'array'         => array(
 				'0'     => 'Disabled',
 				'6'     => 'Every 6 hours',
-				'24'   => 'Every day',
+				'24'    => 'Every day',
 				'168'   => 'Every week',
 			),
 			'default'       => '24',
@@ -45,7 +45,7 @@ function plugin_evidence_config_settings() {
 			'friendly_name' => 'When evidence will be started',
 			'description'   => 'The Base Time for gather data to occur.  For example, if you use \'12:00am\' and you choose once per day, the action would begin at approximately midnight every day.',
 			'method'        => 'textbox',
-			'max_length'	=> '10',
+			'max_length'    => '10',
 			'default'       => '01:30am',
 		),
 		'evidence_records' => array(
@@ -70,17 +70,15 @@ function plugin_evidence_config_settings() {
 			'friendly_name' => 'Excluded notification Host IDs',
 			'description'   => 'Some devices report hw changes too often. You can exclude these host from email notification. Insert Host IDs, comma separator',
 			'method'        => 'textbox',
-			'max_length'	=> '500',
+			'max_length'    => '500',
 			'default'       => '',
 		),
 		'evidence_email_notify_exclude_templates' => array(
 			'friendly_name' => 'Excluded notification device templates',
 			'description'   => 'Some devices types report hw changes too often. You can exclude these templates from email notification. Insert device templates IDs, comma separator',
 			'method'        => 'textbox',
-			'max_length'	=> '500',
+			'max_length'    => '500',
 			'default'       => '',
 		),
 	);
 }
-
-
