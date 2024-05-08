@@ -29,7 +29,7 @@ include_once('./lib/snmp.php');
 include_once('./plugins/evidence/include/functions.php');
 
 if (!isempty_request_var('find')) {
-	set_request_var('action','find');
+	set_request_var('action', 'find');
 	unset_request_var('host_id');
 }
 
@@ -47,7 +47,7 @@ switch (get_request_var('action')) {
 
 	case 'find':
 		general_header();
-		display_evidence_form();
+		display_evidence();
 		evidence_find();
 		bottom_footer();
 
@@ -55,13 +55,13 @@ switch (get_request_var('action')) {
 
         default:
 		general_header();
-		display_evidence_form();
+		display_evidence();
 		bottom_footer();
 
-                break;
+		break;
 }
 
-function display_evidence_form() {
+function display_evidence() {
 	global $config;
 
 	$evidence_records = read_config_option('evidence_records');
@@ -99,34 +99,38 @@ function display_evidence_form() {
 <?php
 	html_end_box();
 
-	if (in_array($host_id, evidence_get_allowed_devices($_SESSION['sess_user_id'], true))) {
+	if (in_array($host_id, plugin_evidence_get_allowed_devices($_SESSION['sess_user_id'], true))) {
 
-		$actual_info = plugin_evidence_get_info($host_id);
-		if ($actual_info) {
-			print $actual_info;
-			print '<br/><br/>';
+		$host = db_fetch_row_prepared ("SELECT *
+			FROM host
+			WHERE id = ? AND
+			disabled != 'on' AND
+			status BETWEEN 2 AND 3",
+			array($id));
+// !!! resim zobrazovani
+		if (!$host) {
+			print __('Disabled/down device. No actual data', 'evidence') . '<br/>';
 
-		}
-
-		if ($evidence_records > 0) {
-			$history = plugin_evidence_get_history($host_id);
-
-			$old = $actual_info;
-			if (cacti_sizeof($history)) {
-				foreach ($history as $key=>$value) {
-					if (strcmp ($value, $old) === 0) {
-						echo "$key - Stejna data<br/>\n";
-					} else {
-						echo "$key - Jina data<br/>\n";
-						echo $value;
-					}
-
-					$old = $value;
-				}
+			if ($evidence_records > 0) {
+				print_r (plugin_evidence_history($id), true);
+//!! tady udelas skryvaci historii starsi, porovnavat mezi verzemi
+			} else {
+				print 'History data store disabled';
 			}
 		} else {
-			print 'History data store disabled';
+			print_r (plugin_evidence_actual_data($host), true);
+//!! tady porovnat s actual
+			print '<br/><br/>';
+
+			if ($evidence_records > 0) {
+				print_r (plugin_evidence_history($id), true);
+//!! tady udelas skryvaci historii starsi, porovnavat mezi verzemi
+			} else {
+				print __('History data store disabled', 'evidence');
+			}
 		}
+	} else {
+		print __('Permission issue', 'evidence');
 	}
 }
 

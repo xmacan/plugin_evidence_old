@@ -45,19 +45,17 @@ if (is_array($allowed) && in_array($id, $allowed)) {
 
 	if (!$host) {
 		print __('Disabled/down device. No actual data', 'evidence') . '<br/>';
-
 		if ($evidence_records > 0) {
-			print_r (plugin_evidence_history($id), true);
+// !! kdyz stara data, odkazat na tab
 		} else {
 			print 'History data store disabled';
 		}
 	} else {
 		print_r (plugin_evidence_actual_data($host), true);
 
-		print '<br/><br/>';
-
 		if ($evidence_records > 0) {
-			print_r (plugin_evidence_history($id), true);
+		print '<br/><br/>';
+// !! kdyz stara data, odkazat na tab
 		} else {
 			print __('History data store disabled', 'evidence');
 		}
