@@ -567,27 +567,29 @@ function plugin_evidence_time_to_run() {
 	$baselower = $basetime - 300;
 	$now       = time();
 
-	evidence_debug("LastRun:'$lastrun', Frequency:'$frequency' sec, BaseTime:'" . date('Y-m-d H:i:s', $basetime) . "', BaseUpper:'$baseupper', BaseLower:'$baselower', Now:'" . date('Y-m-d H:i:s', $now) . "'");
+	cacti_log("LastRun:'$lastrun', Frequency:'$frequency' sec, BaseTime:'" . date('Y-m-d H:i:s', $basetime) . "', BaseUpper:'$baseupper', BaseLower:'$baselower', Now:'" . date('Y-m-d H:i:s', $now) . "'", false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
 
 	if ($frequency > 0 && ($now - $lastrun > $frequency)) {
 		if (empty($lastrun) && ($now < $baseupper) && ($now > $baselower)) {
 
-			evidence_debug('Time to firts run');
-			db_execute_prepared('REPLACE INTO settings (name,value) VALUES ("plugin_evidence_lastrun", ?)', array(time()));
+			cacti_log('Time to first run', false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
+//!!			db_execute_prepared('REPLACE INTO settings (name,value) VALUES ("plugin_evidence_lastrun", ?)', array(time()));
+			set_config_option('plugin_evidence_lastrun', time());
 
 			return true;
 		} elseif (($now - $lastrun > $frequency) && ($now < $baseupper) && ($now > $baselower)) {
-			evidence_debug('Time to periodic Run');
-			db_execute_prepared('REPLACE INTO settings (name,value) VALUES ("plugin_evidence_lastrun", ?)', array(time()));
+			cacti_log('Time to periodic Run', false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
+//!!			db_execute_prepared('REPLACE INTO settings (name,value) VALUES ("plugin_evidence_lastrun", ?)', array(time()));
+			set_config_option('plugin_evidence_lastrun', time());
 
 			return true;
 		} else {
-			evidence_debug('Not Time to Run');
+			cacti_log('Not Time to Run', false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
 
 			return false;
 		}
 	} else {
-		debug('Not time to Run');
+		cacti_log('Not time to Run', false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
 
 		return false;
 	}

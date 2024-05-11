@@ -422,16 +422,18 @@ if (cacti_sizeof($hosts) > 0) {
 
 			/* delete old data */
 			db_execute_prepared ('DELETE FROM plugin_evidence_entity
-				WHERE host_id = ?
-				ORDER BY scan_date LIMIT ? OFFSET ?',
-				array($host['id'], 100, $evidence_records));
+				WHERE host_id = ? AND scan_date IN 
+					(SELECT scan_date FROM plugin_evidence_entity
+					WHERE host_id = ? ORDER BY scan_date LIMIT ? , ?)',
+				array($host['id'], $host['id'], 100, $evidence_records));
+//!! otestovat horni dotaz a predelat ty dva nize
 			db_execute_prepared ('DELETE FROM plugin_evidence_mac
 				WHERE host_id = ?
-				ORDER BY scan_date LIMIT ? OFFSET ?',
+				ORDER BY scan_date LIMIT ? , ?',
 				array($host['id'], 100, $evidence_records));
 			db_execute_prepared ('DELETE FROM plugin_evidence_vendor_specific
 				WHERE host_id = ?
-				ORDER BY scan_date LIMIT ? OFFSET ?',
+				ORDER BY scan_date LIMIT ? , ?',
 				array($host['id'], 100, $evidence_records));
 		}
 
@@ -450,7 +452,7 @@ $pstats = 'Time:' . round($poller_end-$poller_start, 2) . ', Devices:' . $device
 ' Mac rec:' . $rec_mac . ' Specific rec: ' . $rec_spec . ' Optional rec:' . $rec_opt;
 
 cacti_log('EVIDENCE STATS: ' . $pstats, false, 'SYSTEM');
-set_config_option('stats_evidence', $pstats);
+set_config_option('plugin_evidence_stats', $pstats);
 
 if (function_exists('unregister_process')) {
 	unregister_process('evidence', 'master', $config['poller_id']);
@@ -492,46 +494,4 @@ function display_help() {
 	print '  --debug       - debug execution, e.g. for testing' . PHP_EOL . PHP_EOL;
 }
 
-
-
-function plugin_evidence_time_to_run() {
-	global $forcerun;
-
-	$lastrun   = read_config_option('plugin_evidence_lastrun');
-	$frequency = read_config_option('evidence_frequency') * 3600;
-	$basetime  = strtotime(read_config_option('evidence_base_time'));
-	$baseupper = $basetime + 300;
-	$baselower = $basetime - 300;
-	$now       = time();
-
-	evidence_debug("LastRun:'$lastrun', Frequency:'$frequency' sec, BaseTime:'" . date('Y-m-d H:i:s', $basetime) . "', BaseUpper:'$baseupper', BaseLower:'$baselower', Now:'" . date('Y-m-d H:i:s', $now) . "'");
-
-	if ($frequency > 0 && ($now - $lastrun > $frequency)) {
-		if (empty($lastrun) && ($now < $baseupper) && ($now > $baselower)) {
-
-			evidence_debug('Time to firts run');
-			db_execute_prepared('REPLACE INTO settings (name,value) VALUES ("plugin_evidence_lastrun", ?)', array(time()));
-
-			return true;
-		} elseif (($now - $lastrun > $frequency) && ($now < $baseupper) && ($now > $baselower)) {
-			evidence_debug('Time to periodic Run');
-			db_execute_prepared('REPLACE INTO settings (name,value) VALUES ("plugin_evidence_lastrun", ?)', array(time()));
-
-			return true;
-		} else {
-			evidence_debug('Not Time to Run');
-
-			return false;
-		}
-	} elseif ($forcerun) {
-		evidence_debug('Force to Run');
-		db_execute_prepared('REPLACE INTO settings (name,value) VALUES ("plugin_evidence_lastrun", ?', array(time()));
-
-		return true;
-	} else {
-		debug('Not time to Run');
-
-		return false;
-	}
-}
 

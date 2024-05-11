@@ -72,7 +72,30 @@ function display_evidence() {
 
 	$host_id = get_filter_request_var('host_id');
 
-	html_start_box('<strong>evidence</strong>', '100%', '', '3', 'center', '');
+	html_start_box('<strong>Eevidence</strong>', '100%', '', '3', 'center', '');
+
+
+	
+	var_dump($dates);
+/*
+//!!! dle scandate se musi zmenit i host
+// !! tady delam
+	<select id='scan_date' onChange='applyFilter()'>
+		<option value='1'<?php if (get_request_var('scan_date') == '1') {?> selected<?php }?>><?php print __('All', 'mactrack');?></option>
+		<option value='2'<?php if (get_request_var('scan_date') == '2') {?> selected<?php }?>><?php print __('Most Recent', 'mactrack');?></option>
+<?php
+	$scan_dates = array_column(db_fetch_assoc('SELECT DISTINCT(scan_date) FROM plugin_evidence_entity
+		UNION SELECT DISTINCT(scan_date) FROM plugin_evidence_mac
+		UNION SELECT DISTINCT(scan_date) FROM plugin_evidence_vendor_specific
+		ORDER BY scan_date DESC'), 'scan_date');
+
+	if (cacti_sizeof($scan_dates)) {
+		foreach ($scan_dates as $scan_date) {
+			print '<option value="' . $scan_date['scan_date'] . '"'; if (get_request_var('scan_date') == $scan_date['scan_date']) { print ' selected'; } print '>' . $scan_date['scan_date'] . '</option>';
+		}
+	}
+	</select>
+*/
 
 ?>
 
@@ -106,13 +129,13 @@ function display_evidence() {
 			WHERE id = ? AND
 			disabled != 'on' AND
 			status BETWEEN 2 AND 3",
-			array($id));
+			array($host_id));
 // !!! resim zobrazovani
 		if (!$host) {
 			print __('Disabled/down device. No actual data', 'evidence') . '<br/>';
 
 			if ($evidence_records > 0) {
-				print_r (plugin_evidence_history($id), true);
+				print_r (plugin_evidence_history($host_id), true);
 //!! tady udelas skryvaci historii starsi, porovnavat mezi verzemi
 			} else {
 				print 'History data store disabled';
@@ -123,13 +146,16 @@ function display_evidence() {
 			print '<br/><br/>';
 
 			if ($evidence_records > 0) {
-				print_r (plugin_evidence_history($id), true);
+				print_r (plugin_evidence_history($host_id), true);
 //!! tady udelas skryvaci historii starsi, porovnavat mezi verzemi
 			} else {
 				print __('History data store disabled', 'evidence');
 			}
 		}
-	} else {
+	} elseif (empty($host_id)) {
+		print __('Choose any device or try to find serial number or other information');
+	
+	}else {
 		print __('Permission issue', 'evidence');
 	}
 }
