@@ -417,7 +417,7 @@ function plugin_evidence_get_data_specific ($h, $optional = false) {
 }
 
 /* return all (entity, mac, vendor specific and vendor optional) information */
-
+//!! tohle se pouziva?
 function plugin_evidence_history ($host_id, $records = 1) {
 	$out = array();
 
@@ -595,3 +595,44 @@ function plugin_evidence_time_to_run() {
 	}
 }
 
+
+
+function evidence_show_host_data ($host_id, $entity, $scan_date) {
+
+	$evidence_records   = read_config_option('evidence_records');
+	$evidence_frequency = read_config_option('evidence_frequency');
+
+	$host = db_fetch_row_prepared ('SELECT host.id as `id`,
+		host.description, host.hostname, host_template.name as `template_name`
+		FROM host
+		JOIN host_template
+		ON host.host_template_id = host_template.id
+		WHERE host.id = ?',
+		array($host_id));
+		
+	print '<h3>' . $host['description'] . ' (' . $host['hostname'] . ', ' . $host['template_name'] . ')</h3>';
+
+//!! dodelat tady jsem skoncil
+
+	if ($host['disabled'] == 'on' || ($host['status'] == 2 || $host['status'] == 3)) {
+		print __('Disabled/down device. No actual data', 'evidence') . '<br/>';
+
+		if ($evidence_records > 0) {
+			print_r (plugin_evidence_history($host_id), true);
+	//!! tady udelas skryvaci historii starsi, porovnavat mezi verzemi
+		} else {
+			print 'History data store disabled';
+		}
+	} else {
+		print_r (plugin_evidence_actual_data($host), true);
+	//!! tady porovnat s actual
+		print '<br/><br/>';
+
+		if ($evidence_records > 0) {
+			print_r (plugin_evidence_history($host_id), true);
+	//!! tady udelas skryvaci historii starsi, porovnavat mezi verzemi
+		} else {
+			print __('History data store disabled', 'evidence');
+		}
+	}
+}

@@ -28,15 +28,20 @@ include_once('./include/auth.php');
 include_once('./lib/snmp.php');
 include_once('./plugins/evidence/include/functions.php');
 
-if (!isempty_request_var('find')) {
-	set_request_var('action', 'find');
-	unset_request_var('host_id');
-// !! unsetnout jen hosta nebo vsechno? Nebo nic
-	unset_request_var('template_id');
-	unset_request_var('entity');
-	unset_request_var('template_id');
-
-}
+$entities = array(
+	'descr'        => 'Description',
+	'name'         => 'Name',
+	'hardware_rev' => 'Hardware revision',
+	'firmware_rev' => 'Firmware revision',
+	'software_rev' => 'Software revision',
+	'serial_num'   => 'Serial number',
+	'mfg_name'     => 'Manufacturer name',
+	'model_name'   => 'Model name',
+	'alias'        => 'Alias',
+	'asset_id'     => 'Asset ID',
+	'mfg_date'     => 'Manufacturing date',
+	'uuid'         => 'UUID'
+);
 
 set_default_action();
 
@@ -52,7 +57,7 @@ switch (get_request_var('action')) {
 
 	case 'find':
 		general_header();
-		evidence_display();
+		evidence_display_form();
 		evidence_find();
 		bottom_footer();
 
@@ -60,15 +65,15 @@ switch (get_request_var('action')) {
 
         default:
 		general_header();
-		evidence_display();
+		evidence_display_form();
 		evidence_stats();
 		bottom_footer();
 
 		break;
 }
 
-function evidence_display() {
-	global $config;
+function evidence_display_form() {
+	global $config, $entities;
 
 	$evidence_records   = read_config_option('evidence_records');
 	$evidence_frequency = read_config_option('evidence_frequency');
@@ -78,7 +83,6 @@ function evidence_display() {
 	$host_where = '';
 
 	$host_id = get_filter_request_var('host_id');
-	$template = get_filter_request_var('template');
 
 	print '<form name="form_evidence" action="evidence_tab.php">';
 
@@ -86,7 +90,7 @@ function evidence_display() {
 
 	print "<tr class='even noprint'>";
 	print "<td>";
-	print "<form id='form_devices' action='host.php'>";
+	print "<form id='form_devices'>";
 	print "<table class='filterTable'>";
 	print "<tr>";
 
@@ -96,20 +100,17 @@ function evidence_display() {
 	print __('Template');
 	print "</td>";
 	print "<td>";
-	print "<select id='template_id' onChange='applyFilter()'>";
+
+	print "<select id='template_id' name='template_id'>";
 	print "<option value='-1'" . (get_request_var('template_id') == '-1' ? ' selected' : '') . '>' . __('Any') . '</option>';
 
-	if (get_request_var('host_id') == 0) {
-		$templates = get_allowed_graph_templates_normalized('gl.host_id=0', 'name', '', $total_rows);
-	} elseif (get_request_var('host_id') > 0) {
-		$templates = get_allowed_graph_templates_normalized('gl.host_id=' . get_filter_request_var('host_id'), 'name', '', $total_rows);
-	} else {
-		$templates = get_allowed_graph_templates_normalized('', 'name', '', $total_rows);
-	}
+	$templates = db_fetch_assoc('SELECT id, name FROM host_template');
 
 	if (cacti_sizeof($templates)) {
 		foreach ($templates as $template) {
-			print "<option value='" . $template['id'] . "'"; if (get_request_var('template_id') == $template['id']) { print ' selected'; } print '>' . html_escape($template['name']) . "</option>\n";
+			print '<option value="' . $template['id'] . '"' .
+			(get_request_var('template_id') == $template['id'] ? ' selected="selected"' : '') . '>' .
+			html_escape($template['name']) . '</option>';
 		}
 	}
 
@@ -120,10 +121,9 @@ function evidence_display() {
 	print __('Scan date', 'evidence');
 	print '</td>';
 	print '<td>';
-//!!! dle scandate se musi zmenit i host - mozna nemusi, kdyztak zrusit applyfilter
 
-	print '<select id="scan_date" name="scan_date" onChange="applyFilter()">';
-	print '<option value="0" ' . (get_request_var('scan_date') == 0 ? 'selected="selected"' : '') . '>' . __('All', 'evidence') . '</option>';
+	print '<select id="scan_date" name="scan_date">';
+	print '<option value="-1" ' . (get_request_var('scan_date') == -1 ? 'selected="selected"' : '') . '>' . __('All', 'evidence') . '</option>';
 
 	$scan_dates = array_column(db_fetch_assoc('SELECT DISTINCT(scan_date) FROM plugin_evidence_entity
 		UNION SELECT DISTINCT(scan_date) FROM plugin_evidence_mac
@@ -141,8 +141,9 @@ function evidence_display() {
 	print '</select>';
 	print '</td>';
 	print '<td>';
-	print '<input type="submit" class="ui-button ui-corner-all ui-widget" id="refresh" value="' . __('Go') . '" title="' . __esc('Set/Refresh Filters') . '">';
+	print '<input type="submit" class="ui-button ui-corner-all ui-widget" id="refresh" value="' . __('Go') . '" title="' . __esc('Find') . '">';
 	print '<input type="button" class="ui-button ui-corner-all ui-widget" id="clear" value="' . __('Clear') . '" title="' . __esc('Clear Filters') . '">';
+	print '<input type="hidden" name="action" value="find">';
 	print '</td>';
 	print '</tr>';
 	print '</table>';
@@ -161,103 +162,79 @@ function evidence_display() {
 	print '</td>';
 	print '<td>';
 
-	print '<select id="entity" name="entity" onChange="applyFilter()">';
+	print '<select id="entity" name="entity">';
 	print '<option value="0" ' . (get_request_var('entity') == 0 ? 'selected="selected"' : '') . '>' . __('All', 'evidence') . '</option>';
 
-	print '<option value="descr" ' . (get_request_var('entity') == 'descr' ? 'selected="selected"' : '') . '>Descr</option>';
-	print '<option value="name" ' . (get_request_var('entity') == 'name' ? 'selected="selected"' : '') . '>Name</option>';
-	print '<option value="hardware_rev" ' . (get_request_var('entity') == 'hardware_rev' ? 'selected="selected"' : '') . '>Hardware revision</option>';
-	print '<option value="firmware_rev" ' . (get_request_var('entity') == 'firmware_rev' ? 'selected="selected"' : '') . '>Firmware revision</option>';
-	print '<option value="software_rev" ' . (get_request_var('entity') == 'software_rev' ? 'selected="selected"' : '') . '>Software revision</option>';
-	print '<option value="serial_num" ' . (get_request_var('entity') == 'serial_num' ? 'selected="selected"' : '') . '>Serial number</option>';
-	print '<option value="mfg_name" ' . (get_request_var('entity') == 'mfg_name' ? 'selected="selected"' : '') . '>Manufacturer name</option>';
-	print '<option value="model_name" ' . (get_request_var('entity') == 'model_name' ? 'selected="selected"' : '') . '>Model name</option>';
-	print '<option value="alias" ' . (get_request_var('entity') == 'alias' ? 'selected="selected"' : '') . '>Alias name</option>';
-	print '<option value="asset_id" ' . (get_request_var('entity') == 'asset_id' ? 'selected="selected"' : '') . '>Asset ID</option>';
-	print '<option value="mfg_date" ' . (get_request_var('entity') == 'mfg_date' ? 'selected="selected"' : '') . '>Manufacturing date</option>';
-	print '<option value="uuid" ' . (get_request_var('entity') == 'uuid' ? 'selected="selected"' : '') . '>UUID</option>';
-	print '</td>';
-	print '</tr>';
+	foreach ($entities as $key => $value) {
+		print '<option value="' . $key . '" ' . (get_request_var('entity') == $key ? 'selected="selected"' : '') . '>' . $value . '</option>';
+	}
 
-	print '</table>';
-
+	print '</select>';
 	print '</form>';
 
+	print '</td>';
+	print '</tr>';
+	print '</table>';
 	html_end_box();
 }
 
+
 function evidence_find() {
+	global $entities;
 
+	$templates = db_fetch_assoc('SELECT id, name FROM host_template');
 
-	$host_id = get_filter_request_var('host_id');
-	$template = get_filter_request_var('template');
-	$scan_date = get_request_var('scan_date'); //!! tohle osetrit
-	$entity = get_request_var('entity'); //!! tohle osetrit
-	
-	$find = get_filter_request_var('find', FILTER_VALIDATE_REGEXP, array('options' => array('regexp' => '/^([a-zA-Z0-9_\-\.:]{3,})
-	if (strlen($find) < 3 || strlen($find > 20) {
-		print __(Search string must be 3-20 characters';
+	if (in_array(get_filter_request_var('host_id'), plugin_evidence_get_allowed_devices($_SESSION['sess_user_id'], true))) {
+		$host_id = get_filter_request_var('host_id');
+	}
+
+	if (get_request_var('scan_date') != -1) {
+		$scan_date = get_filter_request_var ('scan_date', FILTER_VALIDATE_REGEXP, array('options' => array('regexp' => '/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[09]{2}$/')));
+	} else {
+		$scan_date = null;
+	}
+
+	if (in_array(get_filter_request_var('template_id'), array_column($templates, 'id'))) {
+		$template_id = get_filter_request_var('template_id');
+	}
+
+	if (in_array(get_request_var('entity'), $entities)) {
+		$entity = get_request_var('entity');
+	} else {
+		$entity = null;
+	}
+
+	$find = get_filter_request_var ('find', FILTER_VALIDATE_REGEXP, array('options' => array('regexp' => '/^([a-zA-Z0-9_\-\.:]+)$/')));
+	if (empty($find)) {
+		unset($find);
+	}
+
+	if (isset($find) && (strlen($find) < 3 || strlen($find) > 20)) {
+		print __('Search string must be 3-20 characters', 'evidence');
 		return false;
 	}
 
-	if (in_array($host_id, plugin_evidence_get_allowed_devices($_SESSION['sess_user_id'], true))) {
 
-// !! tady asi muzou byt i disabled
-// 			disabled != 'on' AND
-// 			status BETWEEN 2 AND 3
+//!! zacinam hledat
 
-		$host = db_fetch_row_prepared ('SELECT *
-			FROM host
-			WHERE id = ?',
-			array($host_id));
-
-		if ($host) { 
-			if ($host['disabled'] == 'on' || ($host['status'] == 2 || $host['status'] == 3)) {
-				print __('Disabled/down device. No actual data', 'evidence') . '<br/>';
-
-				if ($evidence_records > 0) {
-					print_r (plugin_evidence_history($host_id), true);
-	//!! tady udelas skryvaci historii starsi, porovnavat mezi verzemi
-				} else {
-					print 'History data store disabled';
-				}
-			} else {
-				print_r (plugin_evidence_actual_data($host), true);
-		//!! tady porovnat s actual
-				print '<br/><br/>';
-
-				if ($evidence_records > 0) {
-					print_r (plugin_evidence_history($host_id), true);
-	//!! tady udelas skryvaci historii starsi, porovnavat mezi verzemi
-				} else {
-					print __('History data store disabled', 'evidence');
-				}
-			}
+	if (isset($host_id)) {
+		evidence_show_host_data($host_id, $entity, $scan_date);
+	} else if (isset($template_id)) {
+		$hosts = db_fetch_assoc_prepared('SELECT id FROM host
+			WHERE host_template_id = ?',
+			array($template_id));
+	
+		foreach ($hosts as $host) {
+			echo $host . " ";
+			evidence_show_host_data($host, $entity, $scan_date);
 		}
-	} elseif (empty($host_id)) {
-
-		if ($evidence_frequency == 0 || $evidence_records == 0) {
-			print __('No data. Allow periodic scan and store history in settings');
-		}
-
-		print '<br/><br/>';
-		print __('You can display all information about specific host, all devices with the same template.') . '<br/>';
-		print __('You can display for example only serial numbers for all host via specify entity.') . '<br/>';
-		print __('You can search any string in all data. ') . '<br/>';
-
-		$ent = db_fetch_cell ('SELECT COUNT(*) FROM plugin_evidence_entity');
-		$mac = db_fetch_cell ('SELECT COUNT(*) FROM plugin_evidence_mac');
-		$ven = db_fetch_cell ('SELECT COUNT(*) FROM plugin_evidence_vendor_specific');
-		$old = db_fetch_cell ('SELECT MIN(scan_date) FROM plugin_evidence_entity');
-
-		print '<br/><br/>';
-		print '<strong>' . __('Number of records') . ':</strong><br/>';
-		print 'Entity MIB: ' . $ent . '<br/>';
-		print 'MAC adresses: ' . $mac . '<br/>';
-		print 'Vendor specific data: ' . $ven . '<br/>';
-		print 'Oldest record: ' . $old . '<br/>';
+	} else if (isset($find)) {
+		//!! tady bude hledani, omezenene scan_date a entitou
+	} else if (isset($entity)) {
+		// !! tady budu hledat treba SN, omezit na host a na template
 	}
 }
+
 
 function evidence_stats() {
 	global $config;
@@ -271,7 +248,7 @@ function evidence_stats() {
 
 	print '<br/><br/>';
 	print __('You can display all information about specific host, all devices with the same template.') . '<br/>';
-	print __('You can display for example only serial numbers for all host via specify entity.') . '<br/>';
+	print __('You can display for example only serial numbers for all devices via specify entity.') . '<br/>';
 	print __('You can search any string in all data. ') . '<br/>';
 
 	$ent = db_fetch_cell ('SELECT COUNT(*) FROM plugin_evidence_entity');
@@ -286,6 +263,5 @@ function evidence_stats() {
 	print 'Vendor specific data: ' . $ven . '<br/>';
 	print 'Oldest record: ' . $old . '<br/>';
 }
-
 
 
