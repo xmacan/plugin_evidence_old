@@ -27,7 +27,9 @@ chdir('../../');
 include_once('./include/auth.php');
 include_once('./lib/snmp.php');
 include_once('./plugins/evidence/include/functions.php');
+include_once('./plugins/evidence/include/arrays.php');
 
+/*
 $entities = array(
 	'descr'        => 'Description',
 	'name'         => 'Name',
@@ -42,6 +44,7 @@ $entities = array(
 	'mfg_date'     => 'Manufacturing date',
 	'uuid'         => 'UUID'
 );
+*/
 
 set_default_action();
 

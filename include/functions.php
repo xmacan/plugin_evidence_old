@@ -509,11 +509,15 @@ function plugin_evidence_actual_data ($host) {
 	$out['mac'] = plugin_evidence_get_mac($host);
 	$org_id = plugin_evidence_find_organization($host);
 
+	$out['org_id'] = $org_id;
+
 	if ($org_id) {
 		$org_name = db_fetch_cell_prepared ('SELECT organization
 			FROM plugin_evidence_organization
 			WHERE id = ?',
 			array($org_id));
+
+		$out['org_name'] = $org_name;
 
 		$host['org_id'] = $org_id;
 
@@ -598,12 +602,14 @@ function plugin_evidence_time_to_run() {
 
 
 function evidence_show_host_data ($host_id, $entity, $scan_date) {
+	global $config;
+
+	include_once($config['base_path'] . '/plugins/evidence/include/arrays.php');
 
 	$evidence_records   = read_config_option('evidence_records');
 	$evidence_frequency = read_config_option('evidence_frequency');
 
-	$host = db_fetch_row_prepared ('SELECT host.id as `id`,
-		host.description, host.hostname, host_template.name as `template_name`
+	$host = db_fetch_row_prepared ('SELECT host.*, host_template.name as `template_name`
 		FROM host
 		JOIN host_template
 		ON host.host_template_id = host_template.id
@@ -612,24 +618,60 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 		
 	print '<h3>' . $host['description'] . ' (' . $host['hostname'] . ', ' . $host['template_name'] . ')</h3>';
 
-//!! dodelat tady jsem skoncil
 
-	if ($host['disabled'] == 'on' || ($host['status'] == 2 || $host['status'] == 3)) {
+	if ($host['disabled'] == 'on' || ($host['status'] == 1 || $host['status'] == 0)) {
 		print __('Disabled/down device. No actual data', 'evidence') . '<br/>';
-
+	
+//!! dodelat tady jsem skoncil
 		if ($evidence_records > 0) {
-			print_r (plugin_evidence_history($host_id), true);
+		echo '<b>Old data:</b><br/>';
+			print_r (plugin_evidence_history($host));
 	//!! tady udelas skryvaci historii starsi, porovnavat mezi verzemi
 		} else {
 			print 'History data store disabled';
 		}
 	} else {
-		print_r (plugin_evidence_actual_data($host), true);
-	//!! tady porovnat s actual
-		print '<br/><br/>';
+		echo '<b>Actual data:</b><br/>';
+		$data = plugin_evidence_actual_data($host);
+
+		if (isset($data['org_name'])) {
+			print $data['org_name'];
+		}
+
+		if (isset($data['org_id'])) {
+			print ' (' . $data['org_id'] . ')';
+		}
+
+
+		if (isset($data['entity'])) {
+			echo '<br/><b>Entity MIB:</b><br/>';
+//!! tady zobrazuju - musim pro kazdy radek projit pole entities a kdyz tam neco bude, tak vypsat
+			foreach ($data['entity'] as $row) {
+				var_dump($row);
+				var_dump('musim pro kazdy radek projit pole entities a kdyz tam neco bude, tak vypsat');
+				echo "<br/><br/>";
+			}
+		}
+
+		if (isset($data['mac'])) {
+			echo '<br/><b>MAC:</b><br/>';
+			var_dump($data['mac']);
+		}
+
+		if (isset($data['spec'])) {
+			echo '<br/><b>Vendor specific:</b><br/>';
+			var_dump($data['spec']);
+		}
+
+		if (isset($data['opt'])) {
+			echo '<br/><b>Vendor optional:</b><br/>';
+			var_dump($data['opt']);
+		}
 
 		if ($evidence_records > 0) {
-			print_r (plugin_evidence_history($host_id), true);
+			echo '<b>Old data:</b><br/>';
+
+			print_r (plugin_evidence_history($host['id']), true);
 	//!! tady udelas skryvaci historii starsi, porovnavat mezi verzemi
 		} else {
 			print __('History data store disabled', 'evidence');
