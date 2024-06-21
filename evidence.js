@@ -1,3 +1,4 @@
+//!! pouziva se?
 // used in host.php
 $(function() {
 
@@ -42,8 +43,13 @@ $(function() {
 		event.preventDefault();
 		applyFilter();
 	});
+
+	$('dd').hide();
+	$('dd:first').slideToggle(); // open first line automatically
+	$('dt').click(function () {
+        	$(this).next('dd').slideToggle(250);
+	});
+
 });
-
-
 
 

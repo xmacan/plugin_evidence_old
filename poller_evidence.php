@@ -419,22 +419,28 @@ if (cacti_sizeof($hosts) > 0) {
 						array($host['id'], $val['oid'], $val['description'], $val['value'], $scan_date));
 				}
 			}
-
+//!! otestovat mazani
 			/* delete old data */
-			db_execute_prepared ('DELETE FROM plugin_evidence_entity
-				WHERE host_id = ? AND scan_date IN 
-					(SELECT scan_date FROM plugin_evidence_entity
-					WHERE host_id = ? ORDER BY scan_date LIMIT ? , ?)',
-				array($host['id'], $host['id'], 100, $evidence_records));
-//!! otestovat horni dotaz a predelat ty dva nize
-			db_execute_prepared ('DELETE FROM plugin_evidence_mac
-				WHERE host_id = ?
-				ORDER BY scan_date LIMIT ? , ?',
-				array($host['id'], 100, $evidence_records));
-			db_execute_prepared ('DELETE FROM plugin_evidence_vendor_specific
-				WHERE host_id = ?
-				ORDER BY scan_date LIMIT ? , ?',
-				array($host['id'], 100, $evidence_records));
+			$tables = array(
+				'plugin_evidence_entity',
+				'plugin_evidence_mac',
+				'plugin_evidence_vendor_specific'
+			);
+
+			foreach ($tables as $table) {
+				$scan_date = db_fetch_cell_prepared('SELECT DISTINCT(scan_date)
+					FROM ?
+					WHERE host_id = ?
+					ORDER BY scan_date DESC
+					LIMIT ? ,1',
+					array($table, $host['id'], $evidence_records));
+
+				if ($scan_date) {
+					db_execute_prepared ('DELETE FROM ?
+						WHERE host_id = ? AND scan_date < ?',
+						array($table, $host['id'], $scan_date));
+				}
+			}
 		}
 
 		$rec_entity += cacti_sizeof($data_entity);

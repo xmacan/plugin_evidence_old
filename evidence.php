@@ -46,7 +46,7 @@ if (is_array($allowed) && in_array($id, $allowed)) {
 	if (!$host) {
 		print __('Disabled/down device. No actual data', 'evidence') . '<br/>';
 		if ($evidence_records > 0) {
-// !! kdyz stara data, odkazat na tab
+//!! kdyz stara data, odkazat na tab
 		} else {
 			print 'History data store disabled';
 		}

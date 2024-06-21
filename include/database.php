@@ -215,14 +215,6 @@ function plugin_evidence_upgrade_database() {
 
 	$current = $info['version'];
 	$oldv    = db_fetch_cell('SELECT version FROM plugin_config WHERE directory = "evidence"');
-
-	if (!cacti_version_compare($oldv, $current, '=')) {
-
-		/*
-		if (cacti_version_compare($oldv, '0.4', '<=')) {
-		}
-		*/
-	}
 }
 
 

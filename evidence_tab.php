@@ -29,23 +29,6 @@ include_once('./lib/snmp.php');
 include_once('./plugins/evidence/include/functions.php');
 include_once('./plugins/evidence/include/arrays.php');
 
-/*
-$entities = array(
-	'descr'        => 'Description',
-	'name'         => 'Name',
-	'hardware_rev' => 'Hardware revision',
-	'firmware_rev' => 'Firmware revision',
-	'software_rev' => 'Software revision',
-	'serial_num'   => 'Serial number',
-	'mfg_name'     => 'Manufacturer name',
-	'model_name'   => 'Model name',
-	'alias'        => 'Alias',
-	'asset_id'     => 'Asset ID',
-	'mfg_date'     => 'Manufacturing date',
-	'uuid'         => 'UUID'
-);
-*/
-
 set_default_action();
 
 $selectedTheme = get_selected_theme();
@@ -81,7 +64,7 @@ function evidence_display_form() {
 	$evidence_records   = read_config_option('evidence_records');
 	$evidence_frequency = read_config_option('evidence_frequency');
 
-	print get_md5_include_js($config['base_path'].'/plugins/evidence/evidence.js');
+	print get_md5_include_js($config['base_path'] . '/plugins/evidence/evidence.js');
 
 	$host_where = '';
 
@@ -217,9 +200,6 @@ function evidence_find() {
 		return false;
 	}
 
-
-//!! zacinam hledat
-
 	if (isset($host_id)) {
 		evidence_show_host_data($host_id, $entity, $scan_date);
 	} else if (isset($template_id)) {
@@ -228,8 +208,7 @@ function evidence_find() {
 			array($template_id));
 	
 		foreach ($hosts as $host) {
-			echo $host . " ";
-			evidence_show_host_data($host, $entity, $scan_date);
+			evidence_show_host_data($host['id'], $entity, $scan_date);
 		}
 	} else if (isset($find)) {
 		//!! tady bude hledani, omezenene scan_date a entitou
@@ -254,15 +233,16 @@ function evidence_stats() {
 	print __('You can display for example only serial numbers for all devices via specify entity.') . '<br/>';
 	print __('You can search any string in all data. ') . '<br/>';
 
+	$vnd = db_fetch_cell ('SELECT count(distinct(organization_id)) FROM plugin_evidence_entity');
 	$ent = db_fetch_cell ('SELECT COUNT(*) FROM plugin_evidence_entity');
-	$mac = db_fetch_cell ('SELECT COUNT(*) FROM plugin_evidence_mac');
+	$mac = db_fetch_cell ('SELECT COUNT(distinct(mac)) FROM plugin_evidence_mac');
 	$ven = db_fetch_cell ('SELECT COUNT(*) FROM plugin_evidence_vendor_specific');
 	$old = db_fetch_cell ('SELECT MIN(scan_date) FROM plugin_evidence_entity');
 
 	print '<br/><br/>';
 	print '<strong>' . __('Number of records') . ':</strong><br/>';
-	print 'Entity MIB: ' . $ent . '<br/>';
-	print 'MAC adresses: ' . $mac . '<br/>';
+	print 'Entity MIB: ' . $ent . ', records, ' . $vnd . ' vendors<br/>';
+	print 'Unique MAC adresses: ' . $mac . '<br/>';
 	print 'Vendor specific data: ' . $ven . '<br/>';
 	print 'Oldest record: ' . $old . '<br/>';
 }

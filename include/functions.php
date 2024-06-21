@@ -323,10 +323,10 @@ function plugin_evidence_normalize_mac ($mac_address) {
 }
 
 
-/* try to find vendor specific data.
+/* try to find vendor specific data
 optional = false - This data doesn't change much over time, so it can be used for comparison
-optional = true - There may be interesting information in this data, but it changes frequently. 
-	Therefore, they are not used for comparison, only for display
+optional = true - There may be interesting information in this data, but it changes frequently.
+		Therefore, they are not used for comparison, only for display
 */
 
 function plugin_evidence_get_data_specific ($h, $optional = false) {
@@ -416,7 +416,9 @@ function plugin_evidence_get_data_specific ($h, $optional = false) {
 	return $data_spec;
 }
 
-/* return all (entity, mac, vendor specific and vendor optional) information */
+/* return all (entity, mac, vendor specific and vendor optional) information 
+   scan_date is index
+*/
 
 function plugin_evidence_history ($host_id) {
 	$out = array();
@@ -504,6 +506,7 @@ function plugin_evidence_find() {
 	}
 }
 
+/* query for actual data */
 
 function plugin_evidence_actual_data ($host) {
 
@@ -543,7 +546,6 @@ function plugin_evidence_actual_data ($host) {
 			$out['spec'] = $data_spec;
 		}
 
-
 		$count = db_fetch_cell_prepared ('SELECT count(*) FROM plugin_evidence_specific_query
 			WHERE org_id = ? AND
 			mandatory = "no"',
@@ -560,7 +562,6 @@ function plugin_evidence_actual_data ($host) {
 			$out['opt'] = $data_opt;
 		}
 	}
-
 
 	return $out;
 }
@@ -581,13 +582,11 @@ function plugin_evidence_time_to_run() {
 		if (empty($lastrun) && ($now < $baseupper) && ($now > $baselower)) {
 
 			cacti_log('Time to first run', false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
-//!!			db_execute_prepared('REPLACE INTO settings (name,value) VALUES ("plugin_evidence_lastrun", ?)', array(time()));
 			set_config_option('plugin_evidence_lastrun', time());
 
 			return true;
 		} elseif (($now - $lastrun > $frequency) && ($now < $baseupper) && ($now > $baselower)) {
 			cacti_log('Time to periodic Run', false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
-//!!			db_execute_prepared('REPLACE INTO settings (name,value) VALUES ("plugin_evidence_lastrun", ?)', array(time()));
 			set_config_option('plugin_evidence_lastrun', time());
 
 			return true;
@@ -604,7 +603,7 @@ function plugin_evidence_time_to_run() {
 }
 
 
-
+//!! tady jeste neresim, kdyz si zobrazi jen entitu nebo scan_date
 function evidence_show_host_data ($host_id, $entity, $scan_date) {
 	global $config;
 
@@ -622,12 +621,15 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 		
 	print '<h3>' . $host['description'] . ' (' . $host['hostname'] . ', ' . $host['template_name'] . ')</h3>';
 
+	
 
-//!!! otazka je, jestli nacitat actual data? Dost to zpomaluje - udelam to odkazem
+//!!! otazka je, jestli nacitat actual data? Dost to zpomaluje - udelam to jquery, ktere naplni div
+// nebo to tam mozna neudelam vubec
+	if (1==1) {
 	echo '<b>Actual data:</b><br/>';
-	echo ' tady odkaz na nacteni aktualnich<br/>';
 
-/*
+	} else {
+
 	$data = plugin_evidence_actual_data($host);
 
 	if (isset($data['org_name'])) {
@@ -702,53 +704,67 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 		}
 		print '</td></tr></table>';
 	}
-*/
+	}
 
 	if ($evidence_records > 0) {
 		echo '<br/><b>Old data:</b><br/>';
 
 		$data = plugin_evidence_history($host_id);
+		$dates = array();
 
-		if (cacti_sizeof($data['entity'])) {
-			$dates = array_column($data['entity'], 'scan_date');
-		} elseif (cacti_sizeof($data['mac'])) {
-			$dates = array_column($data['mac'], 'scan_date');
-		} elseif (cacti_sizeof($data['spec'])) {
-			$dates = array_column($data['spec'], 'scan_date');
-		} elseif (cacti_sizeof($data['opt'])) {
-			$dates = array_column($data['opt'], 'scan_date');
+		if (isset($data['entity']) &&  cacti_sizeof($data['entity']) > 0) {
+			$dates = array_merge($dates, array_column($data['entity'], 'scan_date'));
+		} elseif (isset($data['mac']) && cacti_sizeof($data['mac']) > 0) {
+			$dates = array_merge($dates, array_column($data['mac'], 'scan_date'));
+		} elseif (isset($data['spec']) && cacti_sizeof($data['spec']) > 0) {
+			$dates = array_merge($dates, array_column($data['spec'], 'scan_date'));
+		} elseif (isset($data['opt']) && cacti_sizeof($data['opt']) > 0) {
+			$dates = array_merge($dates, array_column($data['opt'], 'scan_date'));
 		}
-		
-		
+
+		// unique dates only
+		$dates = array_unique($dates);
+
+//!! kdyz je vybrana entita nebo scan_date, tak v javascriptu nezavirat ostatni
 		if (cacti_sizeof($dates)) {
 			print '<dl>';
-			print "<script> $(document).ready(function(){
 
-    $('dd').hide();
-    $('dd:first').slideToggle(); // automaticke otevreni prvni odpovedi
-    $('dt').click(function () {
-        $(this).next('dd').slideToggle(250);
-    });
-}); </script>";
-			
 //!! tady delam. Zbyva udelat porovnavani
 			foreach ($dates as $date) {
 				print '<dt>' . $date . '</dt>';
 				print '<dd>';
 				if (isset($data['entity'][$date])) {
 					print 'Entity MIB:<br/>';
+
+					unset($data['entity'][$date]['host_id']);
+					unset($data['entity'][$date]['organization_id']);
+					unset($data['entity'][$date]['organization_name']);
+					unset($data['entity'][$date]['scan_date']);
+
 					print_r($data['entity'][$date]);
 				}
+//!! vsude se mi zobrazuje jen 1 mac, je to ok?
 				if (isset($data['mac'][$date])) {
 					print '<br/>MAC addresses:<br/>';
+					unset($data['mac'][$date]['host_id']);
+					unset($data['mac'][$date]['scan_date']);
+
 					print_r($data['mac'][$date]);
 				}
 				if (isset($data['spec'][$date])) {
 					print '<br/>Vendor specific:<br/>';
+					unset($data['spec'][$date]['host_id']);
+					unset($data['spec'][$date]['scan_date']);
+					unset($data['spec'][$date]['mandatory']);
+
 					print_r($data['spec'][$date]);
 				}
 				if (isset($data['opt'][$date])) {
 					print '<br/>Vendor optional:<br/>';
+					unset($data['opt'][$date]['host_id']);
+					unset($data['opt'][$date]['scan_date']);
+					unset($data['opt'][$date]['mandatory']);
+
 					print_r($data['opt'][$date]);
 				}
 				print '</dd>';
