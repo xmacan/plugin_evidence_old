@@ -231,7 +231,7 @@ if (cacti_sizeof($hosts) > 0) {
 			if ($count > 0) {
 				$data_opt = plugin_evidence_get_data_specific($host, true);
 				foreach ($data_opt as $key => $val) {
-
+//!! tady mozna ty data oznacit prefixem JSON::
 					if (is_array($val['value'])) {
 						$data_opt[$key]['value'] = json_encode($val['value']);
 					}

@@ -417,54 +417,58 @@ function plugin_evidence_get_data_specific ($h, $optional = false) {
 }
 
 /* return all (entity, mac, vendor specific and vendor optional) information */
-//!! tohle se pouziva?
-function plugin_evidence_history ($host_id, $records = 1) {
+
+function plugin_evidence_history ($host_id) {
 	$out = array();
 
-	$data = db_fetch_assoc_prepared('SELECT *
+	$data = db_fetch_assoc_prepared("SELECT *
 		FROM plugin_evidence_entity
 		WHERE host_id = ?
-		ORDER BY scan_date, index
-		LIMIT ?',
-		array($host_id, $records));
+		ORDER BY scan_date DESC, 'index'",
+		array($host_id));
 
 	if (cacti_sizeof($data)) {
-		$out['entity'] = $data;
+		foreach ($data as $row) {
+			$out['entity'][$row['scan_date']] = $row;
+		}
 	}
 
 	$data = db_fetch_assoc_prepared('SELECT *
 		FROM plugin_evidence_mac
 		WHERE host_id = ?
-		ORDER BY scan_date
-		LIMIT ?',
-		array($host_id, $records));
+		ORDER BY scan_date DESC',
+		array($host_id));
 
 	if (cacti_sizeof($data)) {
-		$out['mac'] = $data;
+		foreach ($data as $row) {
+			$out['mac'][$row['scan_date']] = $row;
+		}
 	}
 
 	$data = db_fetch_assoc_prepared('SELECT *
 		FROM plugin_evidence_vendor_specific
 		WHERE host_id = ? AND
 		mandatory = "yes"
-		ORDER BY scan_date
-		LIMIT ?',
-		array($host_id, $records));
+		ORDER BY scan_date DESC',
+		array($host_id));
 
 	if (cacti_sizeof($data)) {
-		$out['spec'] = $data;
+		foreach ($data as $row) {
+			$out['spec'][$row['scan_date']] = $row;
+		}
 	}
 
 	$data = db_fetch_assoc_prepared('SELECT *
 		FROM plugin_evidence_vendor_specific
 		WHERE host_id = ? AND
 		mandatory = "no"
-		ORDER BY scan_date
-		LIMIT ?',
-		array($host_id, $records));
+		ORDER BY scan_date DESC',
+		array($host_id));
 
 	if (cacti_sizeof($data)) {
-		$out['opt'] = $data;
+		foreach ($data as $row) {
+			$out['opt'][$row['scan_date']] = $row;
+		}
 	}
 
 	return $out;
@@ -553,7 +557,7 @@ function plugin_evidence_actual_data ($host) {
 				}
 			}
 
-			$out['opt'] = $data_spec;
+			$out['opt'] = $data_opt;
 		}
 	}
 
@@ -619,62 +623,142 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 	print '<h3>' . $host['description'] . ' (' . $host['hostname'] . ', ' . $host['template_name'] . ')</h3>';
 
 
-	if ($host['disabled'] == 'on' || ($host['status'] == 1 || $host['status'] == 0)) {
-		print __('Disabled/down device. No actual data', 'evidence') . '<br/>';
-	
-//!! dodelat tady jsem skoncil
-		if ($evidence_records > 0) {
-		echo '<b>Old data:</b><br/>';
-			print_r (plugin_evidence_history($host));
-	//!! tady udelas skryvaci historii starsi, porovnavat mezi verzemi
-		} else {
-			print 'History data store disabled';
+//!!! otazka je, jestli nacitat actual data? Dost to zpomaluje - udelam to odkazem
+	echo '<b>Actual data:</b><br/>';
+	echo ' tady odkaz na nacteni aktualnich<br/>';
+
+/*
+	$data = plugin_evidence_actual_data($host);
+
+	if (isset($data['org_name'])) {
+		print $data['org_name'];
+	}
+
+	if (isset($data['org_id'])) {
+		print ' (' . $data['org_id'] . ')';
+	}
+
+	if (isset($data['entity'])) {
+		print '<br/><b>Entity MIB:</b><br/>';
+		print '<table class="cactiTable"><tr>';
+
+		foreach ($data['entity'] as $row) {
+			print '<td>';
+			foreach ($row as $key => $value) {
+				if ($value != '') {
+					print $key . ': ' . $value . '<br/>';
+				}
+			}
+			print '</td>';
+
 		}
-	} else {
-		echo '<b>Actual data:</b><br/>';
-		$data = plugin_evidence_actual_data($host);
+		print '</tr></table>';
+	}
 
-		if (isset($data['org_name'])) {
-			print $data['org_name'];
-		}
+	if (isset($data['mac'])) {
+		$count = 0;
+		print '<br/><b>MAC:</b><br/>';
+		print '<table class="cactiTable"><tr><td>';
 
-		if (isset($data['org_id'])) {
-			print ' (' . $data['org_id'] . ')';
-		}
-
-
-		if (isset($data['entity'])) {
-			echo '<br/><b>Entity MIB:</b><br/>';
-//!! tady zobrazuju - musim pro kazdy radek projit pole entities a kdyz tam neco bude, tak vypsat
-			foreach ($data['entity'] as $row) {
-				var_dump($row);
-				var_dump('musim pro kazdy radek projit pole entities a kdyz tam neco bude, tak vypsat');
-				echo "<br/><br/>";
+		foreach ($data['mac'] as $mac) {
+			print $mac . '</br>';
+			$count++;
+			if ($count > 5) {
+				$count = 0;
+				print '</td><td>';
 			}
 		}
+		print '</td></tr></table>';
+	}
 
-		if (isset($data['mac'])) {
-			echo '<br/><b>MAC:</b><br/>';
-			var_dump($data['mac']);
+	if (isset($data['spec'])) {
+		$count = 0;
+		print '<br/><b>Vendor specific:</b><br/>';
+		print '<table class="cactiTable"><tr><td>';
+
+		foreach ($data['spec'] as $row) {
+			print $row['description'] . ': ' . $row['value'] . '</br>';
+			$count++;
+			if ($count > 5) {
+				$count = 0;
+				print '</td><td>';
+			}
 		}
+		print '</td></tr></table>';
+	}
 
-		if (isset($data['spec'])) {
-			echo '<br/><b>Vendor specific:</b><br/>';
-			var_dump($data['spec']);
+	if (isset($data['opt'])) {
+		$count = 0;
+		print '<br/><b>Vendor optional:</b><br/>';
+		print '<table class="cactiTable"><tr><td>';
+
+		foreach ($data['opt'] as $row) {
+			print $row['description'] . ': ' . $row['value'] . '</br>';
+			$count++;
+			if ($count > 5) {
+				$count = 0;
+				print '</td><td>';
+			}
 		}
+		print '</td></tr></table>';
+	}
+*/
 
-		if (isset($data['opt'])) {
-			echo '<br/><b>Vendor optional:</b><br/>';
-			var_dump($data['opt']);
+	if ($evidence_records > 0) {
+		echo '<br/><b>Old data:</b><br/>';
+
+		$data = plugin_evidence_history($host_id);
+
+		if (cacti_sizeof($data['entity'])) {
+			$dates = array_column($data['entity'], 'scan_date');
+		} elseif (cacti_sizeof($data['mac'])) {
+			$dates = array_column($data['mac'], 'scan_date');
+		} elseif (cacti_sizeof($data['spec'])) {
+			$dates = array_column($data['spec'], 'scan_date');
+		} elseif (cacti_sizeof($data['opt'])) {
+			$dates = array_column($data['opt'], 'scan_date');
 		}
+		
+		
+		if (cacti_sizeof($dates)) {
+			print '<dl>';
+			print "<script> $(document).ready(function(){
 
-		if ($evidence_records > 0) {
-			echo '<b>Old data:</b><br/>';
+    $('dd').hide();
+    $('dd:first').slideToggle(); // automaticke otevreni prvni odpovedi
+    $('dt').click(function () {
+        $(this).next('dd').slideToggle(250);
+    });
+}); </script>";
+			
+//!! tady delam. Zbyva udelat porovnavani
+			foreach ($dates as $date) {
+				print '<dt>' . $date . '</dt>';
+				print '<dd>';
+				if (isset($data['entity'][$date])) {
+					print 'Entity MIB:<br/>';
+					print_r($data['entity'][$date]);
+				}
+				if (isset($data['mac'][$date])) {
+					print '<br/>MAC addresses:<br/>';
+					print_r($data['mac'][$date]);
+				}
+				if (isset($data['spec'][$date])) {
+					print '<br/>Vendor specific:<br/>';
+					print_r($data['spec'][$date]);
+				}
+				if (isset($data['opt'][$date])) {
+					print '<br/>Vendor optional:<br/>';
+					print_r($data['opt'][$date]);
+				}
+				print '</dd>';
+			}
 
-			print_r (plugin_evidence_history($host['id']), true);
-	//!! tady udelas skryvaci historii starsi, porovnavat mezi verzemi
+			print '</dl>';
 		} else {
-			print __('History data store disabled', 'evidence');
+			print __('No data', 'evidence');
 		}
+	} else {
+		print __('History data store disabled', 'evidence');
 	}
 }
