@@ -621,93 +621,99 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 		
 	print '<h3>' . $host['description'] . ' (' . $host['hostname'] . ', ' . $host['template_name'] . ')</h3>';
 
-	
+	print '<dl>';
 
-//!!! otazka je, jestli nacitat actual data? Dost to zpomaluje - udelam to jquery, ktere naplni div
-// nebo to tam mozna neudelam vubec
-	if (1==1) {
-	echo '<b>Actual data:</b><br/>';
+//!! tady dat odkaz na actual data jen v pripade, ze zobrazuje single host
+	print '<dt><b>' . __('Actual data', 'evidence') . ':</b></dt>';
+	print '<dd>';
 
+	if (!get_filter_request_var('actual')) {
+		print '<a href="' . $config['url_path'] . 'plugins/evidence/evidence_tab.php?host_id=' .
+		$host_id . '&actual=1&action=find">' . __('Show actual', 'evidence') . '</a>';
+		print '<br/><br/>';
 	} else {
+		$data = plugin_evidence_actual_data($host);
 
-	$data = plugin_evidence_actual_data($host);
+		if (isset($data['org_name'])) {
+			print $data['org_name'];
+		}
 
-	if (isset($data['org_name'])) {
-		print $data['org_name'];
-	}
+		if (isset($data['org_id'])) {
+			print ' (' . $data['org_id'] . ')';
+		}
 
-	if (isset($data['org_id'])) {
-		print ' (' . $data['org_id'] . ')';
-	}
+		if (isset($data['entity'])) {
+			print '<br/><b>Entity MIB:</b><br/>';
+			print '<table class="cactiTable"><tr>';
 
-	if (isset($data['entity'])) {
-		print '<br/><b>Entity MIB:</b><br/>';
-		print '<table class="cactiTable"><tr>';
+			foreach ($data['entity'] as $row) {
+				print '<td>';
+				foreach ($row as $key => $value) {
+					if ($value != '') {
+						print $key . ': ' . $value . '<br/>';
+					}
+				}
+				print '</td>';
 
-		foreach ($data['entity'] as $row) {
-			print '<td>';
-			foreach ($row as $key => $value) {
-				if ($value != '') {
-					print $key . ': ' . $value . '<br/>';
+			}
+			print '</tr></table>';
+		}
+
+		if (isset($data['mac'])) {
+			$count = 0;
+			print '<br/><b>MAC:</b><br/>';
+			print '<table class="cactiTable"><tr>';
+
+			foreach ($data['mac'] as $mac) {
+				print '<td>' . $mac . '</td>';
+				$count++;
+				if ($count > 5) {
+					$count = 0;
+					print '</tr><tr>';
 				}
 			}
-			print '</td>';
-
+			print '</tr></table>';
 		}
-		print '</tr></table>';
-	}
 
-	if (isset($data['mac'])) {
-		$count = 0;
-		print '<br/><b>MAC:</b><br/>';
-		print '<table class="cactiTable"><tr><td>';
+		if (isset($data['spec'])) {
+			$count = 0;
+			print '<br/><b>Vendor specific:</b><br/>';
+			print '<table class="cactiTable"><tr><td>';
 
-		foreach ($data['mac'] as $mac) {
-			print $mac . '</br>';
-			$count++;
-			if ($count > 5) {
-				$count = 0;
-				print '</td><td>';
+			foreach ($data['spec'] as $row) {
+				print $row['description'] . ': ' . $row['value'] . '</br>';
+				$count++;
+				if ($count > 5) {
+					$count = 0;
+					print '</td><td>';
+				}
 			}
+			print '</td></tr></table>';
 		}
-		print '</td></tr></table>';
-	}
 
-	if (isset($data['spec'])) {
-		$count = 0;
-		print '<br/><b>Vendor specific:</b><br/>';
-		print '<table class="cactiTable"><tr><td>';
+		if (isset($data['opt'])) {
+			$count = 0;
+			print '<br/><b>Vendor optional:</b><br/>';
+			print '<table class="cactiTable"><tr><td>';
 
-		foreach ($data['spec'] as $row) {
-			print $row['description'] . ': ' . $row['value'] . '</br>';
-			$count++;
-			if ($count > 5) {
-				$count = 0;
-				print '</td><td>';
+			foreach ($data['opt'] as $row) {
+				print $row['description'] . ': ' . $row['value'] . '</br>';
+				$count++;
+				if ($count > 5) {
+					$count = 0;
+					print '</td><td>';
+				}
 			}
+			print '</td></tr></table>';
 		}
-		print '</td></tr></table>';
 	}
 
-	if (isset($data['opt'])) {
-		$count = 0;
-		print '<br/><b>Vendor optional:</b><br/>';
-		print '<table class="cactiTable"><tr><td>';
+	print '</dt>';
+	print '</dd>';
 
-		foreach ($data['opt'] as $row) {
-			print $row['description'] . ': ' . $row['value'] . '</br>';
-			$count++;
-			if ($count > 5) {
-				$count = 0;
-				print '</td><td>';
-			}
-		}
-		print '</td></tr></table>';
-	}
-	}
 
 	if ($evidence_records > 0) {
-		echo '<br/><b>Old data:</b><br/>';
+		echo '<br/><br/><b>Old data:</b><br/>';
 
 		$data = plugin_evidence_history($host_id);
 		$dates = array();
@@ -727,7 +733,7 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 
 //!! kdyz je vybrana entita nebo scan_date, tak v javascriptu nezavirat ostatni
 		if (cacti_sizeof($dates)) {
-			print '<dl>';
+//			print '<dl>';
 
 //!! tady delam. Zbyva udelat porovnavani
 			foreach ($dates as $date) {
@@ -769,12 +775,96 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 				}
 				print '</dd>';
 			}
+//			print '</dl>';
 
-			print '</dl>';
 		} else {
 			print __('No data', 'evidence');
 		}
 	} else {
 		print __('History data store disabled', 'evidence');
 	}
+	print '</dl>';
+
 }
+
+
+
+function evidence_show_actual_data ($data) {
+	global $config;
+
+	include_once($config['base_path'] . '/plugins/evidence/include/arrays.php');
+
+	if (isset($data['org_name'])) {
+		print $data['org_name'];
+	}
+
+	if (isset($data['org_id'])) {
+		print ' (' . $data['org_id'] . ')';
+	}
+
+	if (isset($data['entity'])) {
+		print '<br/><b>Entity MIB:</b><br/>';
+		print '<table class="cactiTable"><tr>';
+
+		foreach ($data['entity'] as $row) {
+			print '<td>';
+			foreach ($row as $key => $value) {
+				if ($value != '') {
+					print $key . ': ' . $value . '<br/>';
+				}
+			}
+			print '</td>';
+
+		}
+		print '</tr></table>';
+	}
+
+	if (isset($data['mac'])) {
+		$count = 0;
+		print '<br/><b>MAC:</b><br/>';
+		print '<table class="cactiTable"><tr>';
+
+		foreach ($data['mac'] as $mac) {
+			print '<td>' . $mac . '</td>';
+			$count++;
+			if ($count > 4) {
+				$count = 0;
+				print '</tr><tr>';
+			}
+		}
+		print '</tr></table>';
+	}
+
+	if (isset($data['spec'])) {
+		$count = 0;
+		print '<br/><b>Vendor specific:</b><br/>';
+		print '<table class="cactiTable"><tr><td>';
+
+		foreach ($data['spec'] as $row) {
+			print $row['description'] . ': ' . $row['value'] . '</br>';
+			$count++;
+			if ($count > 5) {
+				$count = 0;
+				print '</td><td>';
+			}
+		}
+		print '</td></tr></table>';
+	}
+
+	if (isset($data['opt'])) {
+		$count = 0;
+		print '<br/><b>Vendor optional:</b><br/>';
+		print '<table class="cactiTable"><tr><td>';
+
+		foreach ($data['opt'] as $row) {
+			print $row['description'] . ': ' . $row['value'] . '</br>';
+			$count++;
+			if ($count > 5) {
+				$count = 0;
+				print '</td><td>';
+			}
+		}
+		print '</td></tr></table>';
+	}
+}
+

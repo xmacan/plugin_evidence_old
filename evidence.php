@@ -36,29 +36,37 @@ $allowed = plugin_evidence_get_allowed_devices($_SESSION['sess_user_id'], true);
 
 if (is_array($allowed) && in_array($id, $allowed)) {
 
-	$host = db_fetch_row_prepared ("SELECT *
+	$host = db_fetch_row_prepared ('SELECT *
 		FROM host
-		WHERE id = ? AND
-		disabled != 'on' AND
-		status BETWEEN 2 AND 3",
+		WHERE id = ?',
 		array($id));
 
-	if (!$host) {
-		print __('Disabled/down device. No actual data', 'evidence') . '<br/>';
-		if ($evidence_records > 0) {
-//!! kdyz stara data, odkazat na tab
-		} else {
-			print 'History data store disabled';
-		}
-	} else {
-		print_r (plugin_evidence_actual_data($host), true);
+	$count_entity = db_fetch_assoc_prepared('SELECT count(*)
+		FROM plugin_evidence_entity
+		WHERE host_id = ?',
+		array($id));
 
-		if ($evidence_records > 0) {
-		print '<br/><br/>';
-// !! kdyz stara data, odkazat na tab
-		} else {
-			print __('History data store disabled', 'evidence');
-		}
+	$count_mac = db_fetch_assoc_prepared('SELECT count(*)
+		FROM plugin_evidence_mac
+		WHERE host_id = ?',
+		array($id));
+
+	$count_vendor = db_fetch_assoc_prepared('SELECT count(*)
+		FROM plugin_evidence_vendor_specific
+		WHERE host_id = ?',
+		array($id));
+
+	if ($host['disabled'] == 'on' || ($host['status'] != 2 && $host['status'] != 3)) {
+		print __('Disabled/down device. No actual data', 'evidence') . '<br/>';
+	} else {
+		evidence_show_actual_data(plugin_evidence_actual_data($host));
+	}
+
+	if ($evidence_records > 0 && ($count_entity > 0 || $count_mac > 0 || $count_vendor > 0)) {
+		print '<br/><br/><a href="' . $config['url_path'] . 'plugins/evidence/evidence_tab.php?host_id=' .
+			$id . '&action=find">' . __('Show older records', 'evidence') . '</a>';
+	} else {
+		print '<br/><br/>' . __('History data store disabled', 'evidence') . '<br/><br/>';
 	}
 } else {
 	print __('Permission issue', 'evidence');
