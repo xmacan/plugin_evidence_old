@@ -39,6 +39,9 @@ function plugin_evidence_install () {
 	plugin_evidence_setup_database();
 }
 
+
+//!! udelat nove ikonky
+
 function plugin_evidence_uninstall () {
 
 	if (sizeof(db_fetch_assoc("SHOW TABLES LIKE 'plugin_evidence_specific_query'")) > 0 ) {
