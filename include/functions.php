@@ -428,10 +428,11 @@ function plugin_evidence_history ($host_id) {
 		WHERE host_id = ?
 		ORDER BY scan_date DESC, 'index'",
 		array($host_id));
-
+//!! u vsech 4 jsem pridal [], abych si neprepisoval radek, ale to by rozbiji seznam datumu v zobrazovaci funkci
 	if (cacti_sizeof($data)) {
 		foreach ($data as $row) {
-			$out['entity'][$row['scan_date']] = $row;
+			$out['entity'][$row['scan_date']][] = $row;
+			$out['dates'][] = $row['scan_date'];
 		}
 	}
 
@@ -443,7 +444,8 @@ function plugin_evidence_history ($host_id) {
 
 	if (cacti_sizeof($data)) {
 		foreach ($data as $row) {
-			$out['mac'][$row['scan_date']] = $row;
+			$out['mac'][$row['scan_date']][] = $row;
+			$out['dates'][] = $row['scan_date'];
 		}
 	}
 
@@ -453,10 +455,11 @@ function plugin_evidence_history ($host_id) {
 		mandatory = "yes"
 		ORDER BY scan_date DESC',
 		array($host_id));
-
+//!! jako u mac je tohle asi spatne. Prepisuju si jeden radek, kdyz je vice zaznamu. Nize taky
 	if (cacti_sizeof($data)) {
 		foreach ($data as $row) {
-			$out['spec'][$row['scan_date']] = $row;
+			$out['spec'][$row['scan_date']][] = $row;
+			$out['dates'][] = $row['scan_date'];
 		}
 	}
 
@@ -469,7 +472,8 @@ function plugin_evidence_history ($host_id) {
 
 	if (cacti_sizeof($data)) {
 		foreach ($data as $row) {
-			$out['opt'][$row['scan_date']] = $row;
+			$out['opt'][$row['scan_date']][] = $row;
+			$out['dates'][] = $row['scan_date'];
 		}
 	}
 
@@ -716,8 +720,10 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 		echo '<br/><br/><b>Old data:</b><br/>';
 
 		$data = plugin_evidence_history($host_id);
-		$dates = array();
 
+		$dates = array_unique($data['dates']);
+/*
+//!! tady uz je chyba. To pole datumu je ted prazdne nebo spatne
 		if (isset($data['entity']) &&  cacti_sizeof($data['entity']) > 0) {
 			$dates = array_merge($dates, array_column($data['entity'], 'scan_date'));
 		} elseif (isset($data['mac']) && cacti_sizeof($data['mac']) > 0) {
@@ -730,10 +736,11 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 
 		// unique dates only
 		$dates = array_unique($dates);
-
+*/
 //!! kdyz je vybrana entita nebo scan_date, tak v javascriptu nezavirat ostatni
 		if (cacti_sizeof($dates)) {
 //			print '<dl>';
+
 
 //!! tady delam. Zbyva udelat porovnavani
 			foreach ($dates as $date) {
@@ -742,21 +749,32 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 				if (isset($data['entity'][$date])) {
 					print 'Entity MIB:<br/>';
 
-					unset($data['entity'][$date]['host_id']);
-					unset($data['entity'][$date]['organization_id']);
-					unset($data['entity'][$date]['organization_name']);
-					unset($data['entity'][$date]['scan_date']);
+					foreach($data['entity'][$date] as $entity) {
+						unset($entity['host_id']);
+						unset($entity['organization_id']);
+						unset($entity['organization_name']);
+						unset($entity['scan_date']);
 
-					print_r($data['entity'][$date]);
+						print_r($entity) . '<br/><br/><hr/>';
+					}
 				}
-//!! vsude se mi zobrazuje jen 1 mac, je to ok?
 				if (isset($data['mac'][$date])) {
-					print '<br/>MAC addresses:<br/>';
-					unset($data['mac'][$date]['host_id']);
-					unset($data['mac'][$date]['scan_date']);
+					$count = 0;
 
-					print_r($data['mac'][$date]);
+					print '<br/>MAC addresses:<br/>';
+					print '<table class="cactiTable"><tr>';
+
+					foreach($data['mac'][$date] as $mac) {
+						print '<td>' . $mac['mac'] . '</td>';
+						$count++;
+						if ($count > 5) {
+							$count = 0;
+							print '</tr><tr>';
+						}
+					}
+					print '</tr></table>';
 				}
+//!! tady jsem skoncil. Udelat zobrazeni stejne jako u mac a entity - jinak bych tu mel jen jeden radek
 				if (isset($data['spec'][$date])) {
 					print '<br/>Vendor specific:<br/>';
 					unset($data['spec'][$date]['host_id']);

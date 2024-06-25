@@ -341,7 +341,7 @@ if (cacti_sizeof($hosts) > 0) {
 							LEFT JOIN host ON plugin_notification_lists.id = host.thold_host_email
 							WHERE host.id = ?',
 							array($host['id']));
-
+//!! jak vypada email? Separatelly?
 						 send_mail($emails, read_config_option('settings_from_email'),
 							'Plugin evidence - device ' . $host['description'] . ' changed',
 							'I have found any HW/serial number change on host ' . $host['description'] . 
