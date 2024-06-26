@@ -541,9 +541,9 @@ function plugin_evidence_actual_data ($host) {
 			$data_spec = plugin_evidence_get_data_specific($host, false);
 
 			foreach ($data_spec as $key => $val) {
-//!! tady a nize mozna ty data oznacit prefixem JSON::
+
 				if (is_array($val['value'])) {
-					$data_spec[$key]['value'] = json_encode($val['value']);
+					$data_spec[$key]['value'][] = $val['value'];
 				}
 			}
 
@@ -559,7 +559,7 @@ function plugin_evidence_actual_data ($host) {
 			$data_opt = plugin_evidence_get_data_specific($host, true);
 			foreach ($data_opt as $key => $val) {
 				if (is_array($val['value'])) {
-					$data_opt[$key]['value'] = json_encode($val['value']);
+					$data_opt[$key]['value'][] = $val['value'];
 				}
 			}
 
@@ -680,35 +680,33 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 		}
 
 		if (isset($data['spec'])) {
-			$count = 0;
+
 			print '<br/><b>Vendor specific:</b><br/>';
-			print '<table class="cactiTable"><tr><td>';
 
 			foreach ($data['spec'] as $row) {
-				print $row['description'] . ': ' . $row['value'] . '</br>';
-				$count++;
-				if ($count > 5) {
-					$count = 0;
-					print '</td><td>';
+				if (!is_array($row['value'])) {
+					print $row['description'] . ' (OID: ' . $row['oid'] . '): ' . $row['value'] . '</br>';
+				} else {
+					print $row['description'] . ' (OID: ' . $row['oid'] . '): ';
+					var_dump($row['value']);
+					print '</br>';
 				}
 			}
-			print '</td></tr></table>';
 		}
 
 		if (isset($data['opt'])) {
 			$count = 0;
 			print '<br/><b>Vendor optional:</b><br/>';
-			print '<table class="cactiTable"><tr><td>';
 
 			foreach ($data['opt'] as $row) {
-				print $row['description'] . ': ' . $row['value'] . '</br>';
-				$count++;
-				if ($count > 5) {
-					$count = 0;
-					print '</td><td>';
+				if (!is_array($row['value'])) {
+					print $row['description'] . ' (OID: ' . $row['oid'] . '): ' . $row['value'] . '</br>';
+				} else {
+					print $row['description'] . ' (OID: ' . $row['oid'] . '): ';
+					var_dump($row['value']);
+					print '</br>';
 				}
 			}
-			print '</td></tr></table>';
 		}
 	}
 
@@ -722,25 +720,9 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 		$data = plugin_evidence_history($host_id);
 
 		$dates = array_unique($data['dates']);
-/*
-//!! tady uz je chyba. To pole datumu je ted prazdne nebo spatne
-		if (isset($data['entity']) &&  cacti_sizeof($data['entity']) > 0) {
-			$dates = array_merge($dates, array_column($data['entity'], 'scan_date'));
-		} elseif (isset($data['mac']) && cacti_sizeof($data['mac']) > 0) {
-			$dates = array_merge($dates, array_column($data['mac'], 'scan_date'));
-		} elseif (isset($data['spec']) && cacti_sizeof($data['spec']) > 0) {
-			$dates = array_merge($dates, array_column($data['spec'], 'scan_date'));
-		} elseif (isset($data['opt']) && cacti_sizeof($data['opt']) > 0) {
-			$dates = array_merge($dates, array_column($data['opt'], 'scan_date'));
-		}
 
-		// unique dates only
-		$dates = array_unique($dates);
-*/
 //!! kdyz je vybrana entita nebo scan_date, tak v javascriptu nezavirat ostatni
 		if (cacti_sizeof($dates)) {
-//			print '<dl>';
-
 
 //!! tady delam. Zbyva udelat porovnavani
 			foreach ($dates as $date) {
@@ -755,7 +737,8 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 						unset($entity['organization_name']);
 						unset($entity['scan_date']);
 
-						print_r($entity) . '<br/><br/><hr/>';
+						print_r($entity);
+						print '<br/>';
 					}
 				}
 				if (isset($data['mac'][$date])) {
@@ -774,27 +757,32 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 					}
 					print '</tr></table>';
 				}
-//!! tady jsem skoncil. Udelat zobrazeni stejne jako u mac a entity - jinak bych tu mel jen jeden radek
+
 				if (isset($data['spec'][$date])) {
 					print '<br/>Vendor specific:<br/>';
-					unset($data['spec'][$date]['host_id']);
-					unset($data['spec'][$date]['scan_date']);
-					unset($data['spec'][$date]['mandatory']);
+					foreach($data['spec'][$date] as $spec) {
+						unset($spec['host_id']);
+						unset($spec['mandatory']);
+						unset($spec['scan_date']);
 
-					print_r($data['spec'][$date]);
+						print_r($spec);
+						print '<br/>';
+					}
 				}
 				if (isset($data['opt'][$date])) {
 					print '<br/>Vendor optional:<br/>';
-					unset($data['opt'][$date]['host_id']);
-					unset($data['opt'][$date]['scan_date']);
-					unset($data['opt'][$date]['mandatory']);
 
-					print_r($data['opt'][$date]);
+					foreach($data['opt'][$date] as $opt) {
+						unset($opt['host_id']);
+						unset($opt['mandatory']);
+						unset($opt['scan_date']);
+
+						print_r($opt);
+						print '<br/>';
+					}
 				}
 				print '</dd>';
 			}
-//			print '</dl>';
-
 		} else {
 			print __('No data', 'evidence');
 		}

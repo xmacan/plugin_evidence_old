@@ -214,9 +214,9 @@ if (cacti_sizeof($hosts) > 0) {
 				$data_spec = plugin_evidence_get_data_specific($host, false);
 
 				foreach ($data_spec as $key => $val) {
-//!! tady a nize mozna ty data oznacit prefixem JSON::
+//!! tady mam json a nechci ho
 					if (is_array($val['value'])) {
-						$data_spec[$key]['value'] = json_encode($val['value']);
+						$data_spec[$key]['value'][] = $val['value'];
 					}
 				}
 
@@ -231,9 +231,9 @@ if (cacti_sizeof($hosts) > 0) {
 			if ($count > 0) {
 				$data_opt = plugin_evidence_get_data_specific($host, true);
 				foreach ($data_opt as $key => $val) {
-//!! tady mozna ty data oznacit prefixem JSON::
+
 					if (is_array($val['value'])) {
-						$data_opt[$key]['value'] = json_encode($val['value']);
+						$data_opt[$key]['value'][] = $val['value'];
 					}
 				}
 
@@ -298,7 +298,7 @@ if (cacti_sizeof($hosts) > 0) {
 
 //!! otestovat metodu walk
 
-
+//!! udelal jsem ze vseho pole, mozna mi nefunguje porovnani se starymi daty
 		/* comparasion with old data */
 		if ($old_data && (cacti_sizeof($data_entity_his) > 0 || cacti_sizeof($data_mac_his) > 0 || cacti_sizeof($data_spec_his) > 0)) {
 
@@ -397,7 +397,7 @@ if (cacti_sizeof($hosts) > 0) {
 						array($host['id'], $mac, $scan_date));
 				}
 			}
-
+//!! uklada tohle po 26.6 17:10 vice zaznamu, kdyz jsem misto json zacal delat pole?
 			/* store vendor specific mandatory */
 			if (cacti_sizeof($data_spec) > 0) {
 				foreach ($data_spec as $key => $val) {
