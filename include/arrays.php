@@ -14,3 +14,9 @@ $entities = array(
 	'mfg_date'     => 'Manufacturing date',
 	'uuid'         => 'UUID'
 );
+
+$datatypes = array(
+	'mac' => __('Mac addresses', 'evidence'),
+	'vendor_specific' => __('Vendor specific data', 'evidence'),
+	'vendor_optional' => __('Vendor optional data', 'evidence')
+);

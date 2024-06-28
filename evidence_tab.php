@@ -144,15 +144,18 @@ function evidence_display_form() {
 	print '<input type="text" name="find" id="find" value="' . get_request_var('find') . '">';
 	print '</td>';
 	print '<td>';
-	print __('Specific entity');
+	print __('Specify data type');
 	print '</td>';
 	print '<td>';
 
-	print '<select id="entity" name="entity">';
-	print '<option value="0" ' . (get_request_var('entity') == 0 ? 'selected="selected"' : '') . '>' . __('All', 'evidence') . '</option>';
+	print '<select id="datatype" name="datatype">';
+	print '<option value="all" '    . (get_request_var('datatype') == 'all'  ? 'selected="selected"' : '') . '>' . __('All', 'evidence') . '</option>';
+	print '<option value="mac" '  . (get_request_var('datatype') == 'mac'  ? 'selected="selected"' : '') . '>' . __('Mac addresses', 'evidence') . '</option>';
+	print '<option value="spec" ' . (get_request_var('datatype') == 'spec' ? 'selected="selected"' : '') . '>' . __('Vendor specific', 'evidence') . '</option>';
+	print '<option value="opt" '  . (get_request_var('datatype') == 'opt'  ? 'selected="selected"' : '') . '>' . __('Vendor optional', 'evidence') . '</option>';
 
 	foreach ($entities as $key => $value) {
-		print '<option value="' . $key . '" ' . (get_request_var('entity') == $key ? 'selected="selected"' : '') . '>' . $value . '</option>';
+		print '<option value="' . $key . '" ' . (get_request_var('entity') == $key ? 'selected="selected"' : '') . '>Entity - ' . $value . '</option>';
 	}
 
 	print '</select>';
@@ -166,7 +169,7 @@ function evidence_display_form() {
 
 
 function evidence_find() {
-	global $entities;
+	global $entities, $datatypes;
 
 	$templates = db_fetch_assoc('SELECT id, name FROM host_template');
 
@@ -184,10 +187,10 @@ function evidence_find() {
 		$template_id = get_filter_request_var('template_id');
 	}
 
-	if (in_array(get_request_var('entity'), $entities)) {
-		$entity = get_request_var('entity');
+	if (array_key_exists(get_request_var('datatype'), $entities) || array_key_exists(get_request_var('datatype'), $datatypes) || get_request_var('datatype') == 'all') {
+		$datatype = get_request_var('datatype');
 	} else {
-		$entity = null;
+		$datatype = null;
 	}
 
 	$find = get_filter_request_var ('find', FILTER_VALIDATE_REGEXP, array('options' => array('regexp' => '/^([a-zA-Z0-9_\-\.:]+)$/')));
@@ -201,14 +204,14 @@ function evidence_find() {
 	}
 
 	if (isset($host_id)) {
-		evidence_show_host_data($host_id, $entity, $scan_date);
+		evidence_show_host_data($host_id, $datatype, $scan_date);
 	} else if (isset($template_id)) {
 		$hosts = db_fetch_assoc_prepared('SELECT id FROM host
 			WHERE host_template_id = ?',
 			array($template_id));
 	
 		foreach ($hosts as $host) {
-			evidence_show_host_data($host['id'], $entity, $scan_date);
+			evidence_show_host_data($host['id'], $datatype, $scan_date);
 		}
 	} else if (isset($find)) {
 		//!! tady bude hledani, omezenene scan_date a entitou

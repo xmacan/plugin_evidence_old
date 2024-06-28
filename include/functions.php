@@ -428,7 +428,7 @@ function plugin_evidence_history ($host_id) {
 		WHERE host_id = ?
 		ORDER BY scan_date DESC, 'index'",
 		array($host_id));
-//!! u vsech 4 jsem pridal [], abych si neprepisoval radek, ale to by rozbiji seznam datumu v zobrazovaci funkci
+
 	if (cacti_sizeof($data)) {
 		foreach ($data as $row) {
 			$out['entity'][$row['scan_date']][] = $row;
@@ -455,7 +455,7 @@ function plugin_evidence_history ($host_id) {
 		mandatory = "yes"
 		ORDER BY scan_date DESC',
 		array($host_id));
-//!! jako u mac je tohle asi spatne. Prepisuju si jeden radek, kdyz je vice zaznamu. Nize taky
+
 	if (cacti_sizeof($data)) {
 		foreach ($data as $row) {
 			$out['spec'][$row['scan_date']][] = $row;
@@ -608,10 +608,8 @@ function plugin_evidence_time_to_run() {
 
 
 //!! tady jeste neresim, kdyz si zobrazi jen entitu nebo scan_date
-function evidence_show_host_data ($host_id, $entity, $scan_date) {
-	global $config;
-
-	include_once($config['base_path'] . '/plugins/evidence/include/arrays.php');
+function evidence_show_host_data ($host_id, $datatype, $scan_date) {
+	global $config, $entities, $datatypes;
 
 	$evidence_records   = read_config_option('evidence_records');
 	$evidence_frequency = read_config_option('evidence_frequency');
@@ -633,7 +631,7 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 
 	if (!get_filter_request_var('actual')) {
 		print '<a href="' . $config['url_path'] . 'plugins/evidence/evidence_tab.php?host_id=' .
-		$host_id . '&actual=1&action=find">' . __('Show actual', 'evidence') . '</a>';
+		$host_id . '&actual=1&action=find&datatype=' . $datatype . '">' . __('Show actual', 'evidence') . '</a>';
 		print '<br/><br/>';
 	} else {
 		$data = plugin_evidence_actual_data($host);
@@ -646,24 +644,34 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 			print ' (' . $data['org_id'] . ')';
 		}
 
-		if (isset($data['entity'])) {
+		if (in_array($datatype, $entities) && isset($data['entity'])) {
 			print '<br/><b>Entity MIB:</b><br/>';
 			print '<table class="cactiTable"><tr>';
 
 			foreach ($data['entity'] as $row) {
 				print '<td>';
 				foreach ($row as $key => $value) {
+/*
 					if ($value != '') {
 						print $key . ': ' . $value . '<br/>';
 					}
+*/
+					if ($datatype == 'all') { 
+						print $key . ': ' . $value . '<br/>';
+					} else if ($key == $datatype) {
+						print $key . ': ' . $value . '<br/>';
+					}
+
 				}
 				print '</td>';
+//////
 
+////
 			}
 			print '</tr></table>';
 		}
 
-		if (isset($data['mac'])) {
+		if (($datatype == 'all' || $datatype == 'mac') && isset($data['mac'])) {
 			$count = 0;
 			print '<br/><b>MAC:</b><br/>';
 			print '<table class="cactiTable"><tr>';
@@ -679,7 +687,7 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 			print '</tr></table>';
 		}
 
-		if (isset($data['spec'])) {
+		if (($datatype == 'all' || $datatype == 'spec') && isset($data['spec'])) {
 
 			print '<br/><b>Vendor specific:</b><br/>';
 
@@ -694,7 +702,7 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 			}
 		}
 
-		if (isset($data['opt'])) {
+		if (($datatype == 'all' || $datatype == 'opt') && isset($data['opt'])) {
 			$count = 0;
 			print '<br/><b>Vendor optional:</b><br/>';
 
@@ -718,7 +726,6 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 		echo '<br/><br/><b>Old data:</b><br/>';
 
 		$data = plugin_evidence_history($host_id);
-
 		$dates = array_unique($data['dates']);
 
 //!! kdyz je vybrana entita nebo scan_date, tak v javascriptu nezavirat ostatni
@@ -730,18 +737,24 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 				print '<dd>';
 				if (isset($data['entity'][$date])) {
 					print 'Entity MIB:<br/>';
-
+var_dump($datatype);
 					foreach($data['entity'][$date] as $entity) {
-						unset($entity['host_id']);
-						unset($entity['organization_id']);
-						unset($entity['organization_name']);
-						unset($entity['scan_date']);
-
-						print_r($entity);
-						print '<br/>';
+						if ($datatype == 'all') { 
+							unset($entity['host_id']);
+							unset($entity['organization_id']);
+							unset($entity['organization_name']);
+							unset($entity['scan_date']);
+							print_r($entity);
+							print '<br/>';
+						} else if (array_key_exists($datatype, $entity)) {
+							print $datatype . ': ';
+							print_r($entity[$datatype]);
+							print '<br/>';
+						}
 					}
 				}
-				if (isset($data['mac'][$date])) {
+
+				if (($datatype == 'all' || $datatype == 'mac') && isset($data['mac'][$date])) {
 					$count = 0;
 
 					print '<br/>MAC addresses:<br/>';
@@ -758,7 +771,7 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 					print '</tr></table>';
 				}
 
-				if (isset($data['spec'][$date])) {
+				if (($datatype == 'all' || $datatype == 'spec') && isset($data['spec'][$date])) {
 					print '<br/>Vendor specific:<br/>';
 					foreach($data['spec'][$date] as $spec) {
 						unset($spec['host_id']);
@@ -769,7 +782,8 @@ function evidence_show_host_data ($host_id, $entity, $scan_date) {
 						print '<br/>';
 					}
 				}
-				if (isset($data['opt'][$date])) {
+
+				if (($datatype == 'all' || $datatype == 'opt') && isset($data['opt'][$date])) {
 					print '<br/>Vendor optional:<br/>';
 
 					foreach($data['opt'][$date] as $opt) {
