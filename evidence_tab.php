@@ -178,7 +178,7 @@ function evidence_find() {
 	}
 
 	if (get_request_var('scan_date') != -1) {
-		$scan_date = get_filter_request_var ('scan_date', FILTER_VALIDATE_REGEXP, array('options' => array('regexp' => '/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[09]{2}$/')));
+		$scan_date = get_filter_request_var ('scan_date', FILTER_VALIDATE_REGEXP, array('options' => array('regexp' => '/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$/')));
 	} else {
 		$scan_date = null;
 	}
@@ -215,8 +215,6 @@ function evidence_find() {
 		}
 	} else if (isset($find)) {
 		//!! tady bude hledani, omezenene scan_date a entitou
-	} else if (isset($entity)) {
-		// !! tady budu hledat treba SN, omezit na host a na template
 	}
 }
 
@@ -234,7 +232,8 @@ function evidence_stats() {
 	print '<br/><br/>';
 	print __('You can display all information about specific host, all devices with the same template.') . '<br/>';
 	print __('You can display for example only serial numbers for all devices via specify entity.') . '<br/>';
-	print __('You can search any string in all data. ') . '<br/>';
+	print __('You can search any string in all data.') . '<br/>';
+	print __('Note when using Scan Date - Only the data that changed at the moment of Scan_date is displayed. Data not changed at that time is not displayed.') . '<br/>';
 
 	$vnd = db_fetch_cell ('SELECT count(distinct(organization_id)) FROM plugin_evidence_entity');
 	$ent = db_fetch_cell ('SELECT COUNT(*) FROM plugin_evidence_entity');

@@ -606,8 +606,6 @@ function plugin_evidence_time_to_run() {
 	}
 }
 
-
-//!! tady jeste neresim, kdyz si zobrazi jen entitu nebo scan_date
 function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 	global $config, $entities, $datatypes;
 
@@ -625,15 +623,12 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 
 	print '<dl>';
 
-//!! tady dat odkaz na actual data jen v pripade, ze zobrazuje single host
-	print '<dt><b>' . __('Actual data', 'evidence') . ':</b></dt>';
-	print '<dd>';
-
 	if (!get_filter_request_var('actual')) {
 		print '<a href="' . $config['url_path'] . 'plugins/evidence/evidence_tab.php?host_id=' .
-		$host_id . '&actual=1&action=find&datatype=' . $datatype . '">' . __('Show actual', 'evidence') . '</a>';
+		$host_id . '&template=&actual=1&action=find&datatype=' . $datatype . '">' . __('Show actual', 'evidence') . '</a>';
 		print '<br/><br/>';
 	} else {
+		unset_request_var('actual');
 		$data = plugin_evidence_actual_data($host);
 
 		if (isset($data['org_name'])) {
@@ -651,22 +646,14 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 			foreach ($data['entity'] as $row) {
 				print '<td>';
 				foreach ($row as $key => $value) {
-/*
-					if ($value != '') {
-						print $key . ': ' . $value . '<br/>';
-					}
-*/
+
 					if ($datatype == 'all') { 
 						print $key . ': ' . $value . '<br/>';
 					} else if ($key == $datatype) {
 						print $key . ': ' . $value . '<br/>';
 					}
-
 				}
 				print '</td>';
-//////
-
-////
 			}
 			print '</tr></table>';
 		}
@@ -726,18 +713,28 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 		echo '<br/><br/><b>Old data:</b><br/>';
 
 		$data = plugin_evidence_history($host_id);
-		$dates = array_unique($data['dates']);
+
+		if (!isset($data['dates'])) {
+			print __('No data', 'evidence');
+			return true;
+		} else {
 
 //!! kdyz je vybrana entita nebo scan_date, tak v javascriptu nezavirat ostatni
-		if (cacti_sizeof($dates)) {
+//		if (cacti_sizeof($dates)) {
+
+			$dates = array_unique($data['dates']);
 
 //!! tady delam. Zbyva udelat porovnavani
 			foreach ($dates as $date) {
+				
+				if (isset($scan_date) && $scan_date != $date) {
+					continue;
+				}
+				
 				print '<dt>' . $date . '</dt>';
 				print '<dd>';
 				if (isset($data['entity'][$date])) {
 					print 'Entity MIB:<br/>';
-var_dump($datatype);
 					foreach($data['entity'][$date] as $entity) {
 						if ($datatype == 'all') { 
 							unset($entity['host_id']);
@@ -797,14 +794,13 @@ var_dump($datatype);
 				}
 				print '</dd>';
 			}
-		} else {
-			print __('No data', 'evidence');
+	//	} else {
+	//		print __('No data', 'evidence');
 		}
 	} else {
 		print __('History data store disabled', 'evidence');
 	}
 	print '</dl>';
-
 }
 
 
