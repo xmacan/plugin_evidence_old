@@ -141,7 +141,7 @@ function evidence_display_form() {
 	print '</td>';
 	print '<td>';
 
-	print '<input type="text" name="find" id="find" value="' . get_request_var('find') . '">';
+	print '<input type="text" name="find_text" id="find" value="' . get_request_var('find_text') . '">';
 	print '</td>';
 	print '<td>';
 	print __('Specify data type');
@@ -193,12 +193,12 @@ function evidence_find() {
 		$datatype = null;
 	}
 
-	$find = get_filter_request_var ('find', FILTER_VALIDATE_REGEXP, array('options' => array('regexp' => '/^([a-zA-Z0-9_\-\.:]+)$/')));
-	if (empty($find)) {
-		unset($find);
+	$find_text = get_filter_request_var ('find_text', FILTER_VALIDATE_REGEXP, array('options' => array('regexp' => '/^([a-zA-Z0-9_\-\.:]+)$/')));
+	if (empty($find_text)) {
+		unset($find_text);
 	}
 
-	if (isset($find) && (strlen($find) < 3 || strlen($find) > 20)) {
+	if (isset($find_text) && (strlen($find_text) < 3 || strlen($find_text) > 20)) {
 		print __('Search string must be 3-20 characters', 'evidence');
 		return false;
 	}
@@ -213,8 +213,8 @@ function evidence_find() {
 		foreach ($hosts as $host) {
 			evidence_show_host_data($host['id'], $datatype, $scan_date);
 		}
-	} else if (isset($find)) {
-		//!! tady bude hledani, omezenene scan_date a entitou
+	} else if (isset($find_text)) {
+		plugin_evidence_find();
 	}
 }
 

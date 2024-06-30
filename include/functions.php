@@ -75,8 +75,9 @@ function plugin_evidence_host_edit_bottom () {
 }
 
 
-/* plugin needs enterprise numbers, import cat take longer time
-   so import is started first poller run
+/*
+	plugin needs enterprise numbers, import cat take longer time
+	so import is started first poller run
 */
 
 function evidence_import_enterprise_numbers() {
@@ -303,24 +304,6 @@ function plugin_evidence_get_mac ($h) {
 	return $return;
 }
 
-function plugin_evidence_normalize_mac ($mac_address) {
-
-	$mac_address = trim($mac_address);
-
-	if (strlen($mac_address) > 10) {
-		$max_address = str_replace(array('"', ' ', '-'), array('',  ':', ':'), $mac_address);
-	} else { /* return is hex */
-		$mac = '';
-
-		for ($j = 0; $j < strlen($mac_address); $j++) {
-			$mac .= bin2hex($mac_address[$j]) . ':';
-		}
-
-		$mac_address = $mac;
-	}
-
-	return strtoupper($mac_address);
-}
 
 
 /* try to find vendor specific data
@@ -416,8 +399,30 @@ function plugin_evidence_get_data_specific ($h, $optional = false) {
 	return $data_spec;
 }
 
-/* return all (entity, mac, vendor specific and vendor optional) information 
-   scan_date is index
+function plugin_evidence_normalize_mac ($mac_address) {
+
+	$mac_address = trim($mac_address);
+
+	if (strlen($mac_address) > 10) {
+		$max_address = str_replace(array('"', ' ', '-'), array('',  ':', ':'), $mac_address);
+	} else { /* return is hex */
+		$mac = '';
+
+		for ($j = 0; $j < strlen($mac_address); $j++) {
+			$mac .= bin2hex($mac_address[$j]) . ':';
+		}
+
+		$mac_address = $mac;
+	}
+
+	return strtoupper($mac_address);
+}
+
+
+
+/*
+	return all (entity, mac, vendor specific and vendor optional) information
+	scan_date is index
 */
 
 function plugin_evidence_history ($host_id) {
@@ -481,33 +486,82 @@ function plugin_evidence_history ($host_id) {
 }
 
 
-//!!! tohle prepsat
-function plugin_evidence_find() {
 
-	if (read_config_option('snver_records') == 0) {
+function plugin_evidence_find() {
+	global $config;
+
+	if (read_config_option('evidence_records') == 0) {
 		print 'Store history is not allowed. Nothing to do ...';
 		return false;
 	}
 
-	$find = get_filter_request_var('find', FILTER_VALIDATE_REGEXP, array('options' => array('regexp' => '/^([a-zA-Z0-9_\-\.:]{3,})$/')));
-	if (strlen($find) < 3) {
-		print 'At least 3 chars...';
-		return false;
+	$f = get_request_var('find_text');
+
+	$sql_where = "descr RLIKE '" . $f . "'
+		OR name RLIKE '" . $f . "'
+		OR hardware_rev RLIKE '" . $f . "'
+		OR firmware_rev RLIKE '" . $f . "'
+		OR software_rev RLIKE '" . $f . "'
+		OR serial_num RLIKE '" . $f . "'
+		OR mfg_date RLIKE '" . $f . "'
+		OR model_name RLIKE '" . $f . "'
+		OR alias RLIKE '" . $f . "'
+		OR asset_id RLIKE '" . $f . "'
+		OR mfg_date RLIKE '" . $f . "'
+		OR uuid RLIKE '" . $f . "' ";
+
+	$data = db_fetch_assoc ('SELECT host_id, COUNT(scan_date) AS `count` FROM plugin_evidence_entity
+		WHERE ' . $sql_where . ' GROUP BY host_id');
+
+	print '<br/><b>Entity MIB:</b><br/>';
+	if (cacti_sizeof($data)) {
+		foreach ($data as $row) {
+			$desc = db_fetch_cell_prepared ('SELECT description FROM host WHERE id = ?', array($row['host_id']));
+			print '<a href="' . $config['url_path'] .
+				'plugins/evidence/evidence_tab.php?action=find&datatype=all&host_id=' . $row['host_id'] . '">' .
+				$desc . '</a> (ID: ' . $row['host_id'] . '), found in ' . $row['count'] . ' records<br/>';
+		}
+	} else {
+		print 'Not found<br/>';
 	}
 
-	$data = db_fetch_assoc ('SELECT id,description,data,last_check FROM host 
-		LEFT JOIN plugin_evidence_history ON host.id = plugin_evidence_history.host_id 
-		WHERE plugin_evidence_history.data LIKE "%' . $find . '%"');
+	$data = db_fetch_assoc_prepared ("SELECT host_id, COUNT(scan_date) AS `count` FROM plugin_evidence_mac
+		WHERE mac RLIKE '" . $f . "' GROUP BY host_id");
+
+	print '<br/><b>MAC addresses:</b><br/>';
 
 	if (cacti_sizeof($data)) {
 		foreach ($data as $row) {
-			print '<b>Host ' . $row['description'] . '(ID: ' . $row['id'] . ')<br/>';
-			print 'Date ' . $row['last_check'] . '</b><br/>';
-			print $row['data'] . '<br/><br/>';
+			$desc = db_fetch_cell_prepared ('SELECT description FROM host WHERE id = ?', array($row['host_id']));
+			print '<a href="' . $config['url_path'] . 
+				'plugins/evidence/evidence_tab.php?action=find&datatype=all&host_id=' . $row['host_id'] . '">' .
+				$desc . '</a> (ID: ' . $row['host_id'] . '), found in ' . $row['count'] . ' records<br/>';
 		}
 	} else {
-		print 'Not found';
+		print 'Not found<br/>';
 	}
+
+
+	$sql_where = "oid RLIKE '" . $f . "'
+		OR description RLIKE '" . $f . "'
+		OR value RLIKE '" . $f . "' ";
+
+	$data = db_fetch_assoc ('SELECT host_id, COUNT(scan_date) AS `count` FROM plugin_evidence_vendor_specific
+		WHERE ' . $sql_where . ' GROUP BY host_id');
+
+	print '<br/><b>Vendor specific data:</b><br/>';
+
+	if (cacti_sizeof($data)) {
+		foreach ($data as $row) {
+			$desc = db_fetch_cell_prepared ('SELECT description FROM host WHERE id = ?', array($row['host_id']));
+			print '<a href="' . $config['url_path'] . 
+				'plugins/evidence/evidence_tab.php?action=find&datatype=all&host_id=' . $row['host_id'] . '">' .
+				$desc . '</a> (ID: ' . $row['host_id'] . '), found in ' . $row['count'] . ' records<br/>';
+		}
+	} else {
+		print 'Not found<br/>';
+	}
+
 }
 
 /* query for actual data */
@@ -611,6 +665,9 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 
 	$evidence_records   = read_config_option('evidence_records');
 	$evidence_frequency = read_config_option('evidence_frequency');
+	$data_compare_entity = array();
+	$data_compare_mac    = array();
+	$data_compare_spec   = array();
 
 	$host = db_fetch_row_prepared ('SELECT host.*, host_template.name as `template_name`
 		FROM host
@@ -656,6 +713,7 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 				print '</td>';
 			}
 			print '</tr></table>';
+			$data_compare_entity = $data['entity'];
 		}
 
 		if (($datatype == 'all' || $datatype == 'mac') && isset($data['mac'])) {
@@ -672,6 +730,7 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 				}
 			}
 			print '</tr></table>';
+			$data_compare_mac = $data['mac'];
 		}
 
 		if (($datatype == 'all' || $datatype == 'spec') && isset($data['spec'])) {
@@ -687,6 +746,7 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 					print '</br>';
 				}
 			}
+			$data_compare_spec = $data['spec'];
 		}
 
 		if (($datatype == 'all' || $datatype == 'opt') && isset($data['opt'])) {
@@ -708,9 +768,7 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 	print '</dt>';
 	print '</dd>';
 
-
 	if ($evidence_records > 0) {
-		echo '<br/><br/><b>Old data:</b><br/>';
 
 		$data = plugin_evidence_history($host_id);
 
@@ -720,21 +778,46 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 		} else {
 
 //!! kdyz je vybrana entita nebo scan_date, tak v javascriptu nezavirat ostatni
-//		if (cacti_sizeof($dates)) {
 
 			$dates = array_unique($data['dates']);
 
-//!! tady delam. Zbyva udelat porovnavani
 			foreach ($dates as $date) {
-				
+
+				$change = false;
+
 				if (isset($scan_date) && $scan_date != $date) {
 					continue;
 				}
+
+				if (cacti_sizeof($data_compare_entity) || cacti_sizeof($data_compare_mac) || cacti_sizeof($data_compare_spec)) {
+
+					if (isset($data_compare_entity) && isset($data['entity'][$date]) && $data_compare_entity != $data['entity'][$date]) {
+						$change = true;
+					}
+					if (isset($data_compare_mac) && isset($data['mac'][$date]) && $data_compare_mac != $data['mac'][$date]) {
+						$change = true;
+					}
+					if (isset($data_compare_spec) && isset($data['spec'][$date]) && $data_compare_spec != $data['spec'][$date]) {
+						$change = true;
+					}
+				}
+echo "<hr/>";
+var_dump($data_compare_entity);
+//var_dump($data['entity'][$date]);
+
+echo "<hr/>";
+
+				if ($change) {
+					print '<dt><b>' . $date . ' ' . __('Changed', 'evidence') . '</b></dt>';
+				} else {
+					print '<dt><b>' . $date . '</b></dt>';
+				}
 				
-				print '<dt>' . $date . '</dt>';
 				print '<dd>';
 				if (isset($data['entity'][$date])) {
 					print 'Entity MIB:<br/>';
+					$data_compare_entity = $data['entity'][$date];
+
 					foreach($data['entity'][$date] as $entity) {
 						if ($datatype == 'all') { 
 							unset($entity['host_id']);
@@ -749,6 +832,8 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 							print '<br/>';
 						}
 					}
+				} else {
+					$data_compare_entity = array();
 				}
 
 				if (($datatype == 'all' || $datatype == 'mac') && isset($data['mac'][$date])) {
@@ -766,9 +851,14 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 						}
 					}
 					print '</tr></table>';
+					$data_compare_mac = $data['mac'][$date];
+				} else {
+					$data_compare_mac = array();
 				}
 
 				if (($datatype == 'all' || $datatype == 'spec') && isset($data['spec'][$date])) {
+					$data_compare_spec = $data['spec'][$date];
+
 					print '<br/>Vendor specific:<br/>';
 					foreach($data['spec'][$date] as $spec) {
 						unset($spec['host_id']);
@@ -778,6 +868,8 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 						print_r($spec);
 						print '<br/>';
 					}
+				}else {
+					$data_compare_spec = array();
 				}
 
 				if (($datatype == 'all' || $datatype == 'opt') && isset($data['opt'][$date])) {
@@ -791,8 +883,11 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 						print_r($opt);
 						print '<br/>';
 					}
+
 				}
 				print '</dd>';
+
+
 			}
 	//	} else {
 	//		print __('No data', 'evidence');

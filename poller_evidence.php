@@ -214,7 +214,6 @@ if (cacti_sizeof($hosts) > 0) {
 				$data_spec = plugin_evidence_get_data_specific($host, false);
 
 				foreach ($data_spec as $key => $val) {
-//!! tady mam json a nechci ho
 					if (is_array($val['value'])) {
 						$data_spec[$key]['value'][] = $val['value'];
 					}
@@ -243,7 +242,7 @@ if (cacti_sizeof($hosts) > 0) {
 
 		evidence_debug('Host ' . $host['id'] . ' data gathering finished');
 
-		$old_scan_date = db_fetch_cell_prepared('SELECT MAX(scan_date) 
+		$old_scan_date = db_fetch_cell_prepared('SELECT MAX(scan_date)
 			FROM plugin_evidence_entity
 			WHERE host_id = ?',
 			array($host['id']));
