@@ -173,35 +173,48 @@ function plugin_evidence_initialize_database() {
 		VALUES
 		(14988, 'serial', '.1.3.6.1.4.1.14988.1.1.7.3.0', '.*', 'get')");
 
-	db_execute ("INSERT INTO plugin_evidence_specific_query (org_id, description, oid, result, method)
+	db_execute ("INSERT INTO plugin_evidence_specific_query
+		(org_id, description, oid, result, method)
 		VALUES 
 		(14988, 'SW version', '.1.3.6.1.4.1.14988.1.1.4.4.0', '.*', 'get')");
 
-	db_execute ("INSERT INTO plugin_evidence_specific_query (org_id, description, oid, result, method)
+	db_execute ("INSERT INTO plugin_evidence_specific_query
+		(org_id, description, oid, result, method)
 		VALUES
 		(14988, 'Firmware version', '.1.3.6.1.4.1.14988.1.1.7.4.0', '.*', 'get')");
 
-	db_execute ("INSERT INTO plugin_evidence_specific_query (org_id, description, oid, result, method)
+	db_execute ("INSERT INTO plugin_evidence_specific_query
+		(org_id, description, oid, result, method)
 		VALUES 
 		(14988, 'SW version', '.1.3.6.1.4.1.14988.1.1.17.1.1.4.1', '.*', 'get')");
 
-	db_execute ("INSERT INTO plugin_evidence_specific_query (org_id, description, oid, result, method)
+	db_execute ("INSERT INTO plugin_evidence_specific_query
+		(org_id, description, oid, result, method)
 		VALUES
 		(14988, 'hw', '.1.3.6.1.2.1.47.1.1.1.1.2.65536', '([a-zA-Z0-9_-]){1,20}$','get')");
 
 	// QNAP
-	db_execute ("INSERT INTO plugin_evidence_specific_query (org_id, description, oid, result, method, table_items)
+	db_execute ("INSERT INTO plugin_evidence_specific_query
+		(org_id, description, oid, result, method, table_items
 		VALUES
-		(24681, 'hw disks', '.1.3.6.1.4.1.24681.1.3.11.1', '.*', 'table', '2-name,5-type,3-temp,7-smart')");
+		(24681, 'hw disks', '.1.3.6.1.4.1.24681.1.3.11.1', '.*', 'table', '2-name,5-type')");
+
+	db_execute ("INSERT INTO plugin_evidence_specific_query
+		(org_id, description, oid, result, method, table_items, mandatory)
+		VALUES
+		(24681, 'hw disks', '.1.3.6.1.4.1.24681.1.3.11.1', '.*', 'table', '2-name,3-temp,7-smart', 'no')");
 
 	// Synology - Info - Synology has OrgID 6574, but uses 8072
-	db_execute ("INSERT INTO plugin_evidence_specific_query (org_id, description, oid, result, method)
+	db_execute ("INSERT INTO plugin_evidence_specific_query
+		(org_id, description, oid, result, method)
 		VALUES
 		(8072, 'serial', '.1.3.6.1.4.1.6574.1.5.2.0', '.*', 'get')");
-	db_execute ("INSERT INTO plugin_evidence_specific_query (org_id, description, oid, result, method)
+	db_execute ("INSERT INTO plugin_evidence_specific_query
+		(org_id, description, oid, result, method)
 		VALUES
 		(8072, 'version', '.1.3.6.1.4.1.6574.1.5.3.0', '.*', 'get')");
-	db_execute ("INSERT INTO plugin_evidence_specific_query (org_id, description, oid, result, method)
+	db_execute ("INSERT INTO plugin_evidence_specific_query
+		(org_id, description, oid, result, method)
 		VALUES
 		(8072, 'hw model', '.1.3.6.1.4.1.6574.1.5.1.0', '.*', 'get')");
 }

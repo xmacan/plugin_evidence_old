@@ -155,7 +155,7 @@ function evidence_display_form() {
 	print '<option value="opt" '  . (get_request_var('datatype') == 'opt'  ? 'selected="selected"' : '') . '>' . __('Vendor optional', 'evidence') . '</option>';
 
 	foreach ($entities as $key => $value) {
-		print '<option value="' . $key . '" ' . (get_request_var('entity') == $key ? 'selected="selected"' : '') . '>Entity - ' . $value . '</option>';
+		print '<option value="' . $key . '" ' . (get_request_var('datatype') == $key ? 'selected="selected"' : '') . '>Entity - ' . $value . '</option>';
 	}
 
 	print '</select>';

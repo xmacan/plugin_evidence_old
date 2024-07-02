@@ -573,7 +573,6 @@ function plugin_evidence_actual_data ($host) {
 	$out['entity'] = plugin_evidence_get_entity_data($host);
 	$out['mac'] = plugin_evidence_get_mac($host);
 	$org_id = plugin_evidence_find_organization($host);
-
 	$out['org_id'] = $org_id;
 
 	if ($org_id) {
@@ -595,13 +594,17 @@ function plugin_evidence_actual_data ($host) {
 			$data_spec = plugin_evidence_get_data_specific($host, false);
 
 			foreach ($data_spec as $key => $val) {
+				$data_spec_x[$key]['description'] = $val['description'];
+				$data_spec_x[$key]['oid'] = $val['oid'];
 
 				if (is_array($val['value'])) {
-					$data_spec[$key]['value'][] = $val['value'];
+					$data_spec_x[$key]['value'][] = $val['value'];
+				} else {
+					$data_spec_x[$key]['value'] = $val['value'];
 				}
 			}
 
-			$out['spec'] = $data_spec;
+			$out['spec'] = $data_spec_x;
 		}
 
 		$count = db_fetch_cell_prepared ('SELECT count(*) FROM plugin_evidence_specific_query
@@ -612,12 +615,17 @@ function plugin_evidence_actual_data ($host) {
 		if ($count > 0) {
 			$data_opt = plugin_evidence_get_data_specific($host, true);
 			foreach ($data_opt as $key => $val) {
+				$data_opt_x[$key]['description'] = $val['description'];
+				$data_opt_x[$key]['oid'] = $val['oid'];
+
 				if (is_array($val['value'])) {
-					$data_opt[$key]['value'][] = $val['value'];
+					$data_opt_x[$key]['value'][] = $val['value'];
+				} else {
+					$data_opt_x[$key]['value'] = $val['value'];
 				}
 			}
 
-			$out['opt'] = $data_opt;
+			$out['opt'] = $data_opt_x;
 		}
 	}
 
@@ -742,13 +750,19 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 					print $row['description'] . ' (OID: ' . $row['oid'] . '): ' . $row['value'] . '</br>';
 				} else {
 					print $row['description'] . ' (OID: ' . $row['oid'] . '): ';
-					var_dump($row['value']);
+					foreach ($row['value'] as $a) {
+						if (is_array($a)) {
+							print implode(', ', $a);
+						} else {
+							print $a . '</br>';
+						}
+					}
 					print '</br>';
 				}
 			}
 			$data_compare_spec = $data['spec'];
 		}
-
+//!! qnap - ukladam tam uvozovku navic
 		if (($datatype == 'all' || $datatype == 'opt') && isset($data['opt'])) {
 			$count = 0;
 			print '<br/><b>Vendor optional:</b><br/>';
@@ -758,7 +772,13 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 					print $row['description'] . ' (OID: ' . $row['oid'] . '): ' . $row['value'] . '</br>';
 				} else {
 					print $row['description'] . ' (OID: ' . $row['oid'] . '): ';
-					var_dump($row['value']);
+					foreach ($row['value'] as $a) {
+						if (is_array($a)) {
+							print implode(', ', $a);
+						} else {
+							print $a . '</br>';
+						}
+					}
 					print '</br>';
 				}
 			}
@@ -777,13 +797,14 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 			return true;
 		} else {
 
-//!! kdyz je vybrana entita nebo scan_date, tak v javascriptu nezavirat ostatni
+//!! kdyz je vybrana entita nebo scan_date, tak v javascriptu nezavirat ostatni?
 
 			$dates = array_unique($data['dates']);
 
 			foreach ($dates as $date) {
 
 				$change = false;
+				$where = '';
 
 				if (isset($scan_date) && $scan_date != $date) {
 					continue;
@@ -791,44 +812,95 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 
 				if (cacti_sizeof($data_compare_entity) || cacti_sizeof($data_compare_mac) || cacti_sizeof($data_compare_spec)) {
 
+					if (cacti_sizeof($data_compare_entity)) {
+						foreach ($data_compare_entity as &$row) {
+							unset($row['scan_date']);
+						}
+					}
+
+					if (cacti_sizeof($data_compare_mac)) {
+						foreach ($data_compare_mac as &$row) {
+							if (isset($row['scan_date'])) {
+								unset($row['scan_date']);
+							}
+						}
+					}
+
+					if (cacti_sizeof($data_compare_spec)) {
+						foreach ($data_compare_spec as &$row) {
+							if (isset($row['scan_date'])) {
+								unset($row['scan_date']);
+							}
+						}
+					}
+
+					if (cacti_sizeof($data['entity'][$date])) {
+						foreach ($data['entity'][$date] as &$row) {
+							unset($row['scan_date']);
+						}
+					}
+
+					if (cacti_sizeof($data['mac'][$date])) {
+						foreach ($data['mac'][$date] as &$row) {
+							unset($row['scan_date']);
+						}
+						sort($data_compare_mac);
+						sort($data['mac'][$date]);
+					}
+
+					if (cacti_sizeof($data['spec'][$date])) {
+						foreach ($data['spec'][$date] as &$row) {
+							unset($row['scan_date']);
+						}
+					}
+
 					if (isset($data_compare_entity) && isset($data['entity'][$date]) && $data_compare_entity != $data['entity'][$date]) {
 						$change = true;
+						$where = __('Entity', 'evidence');
 					}
+
 					if (isset($data_compare_mac) && isset($data['mac'][$date]) && $data_compare_mac != $data['mac'][$date]) {
 						$change = true;
+						$where = __('MAC addresses', 'evidence');
 					}
+
 					if (isset($data_compare_spec) && isset($data['spec'][$date]) && $data_compare_spec != $data['spec'][$date]) {
 						$change = true;
+						$where = __('Vendor specific', 'evidence');
 					}
 				}
-echo "<hr/>";
-var_dump($data_compare_entity);
-//var_dump($data['entity'][$date]);
-
-echo "<hr/>";
-
+//!! hlasim changed vendor specific, kdyz si zvolim jen konkretni entitu
 				if ($change) {
-					print '<dt><b>' . $date . ' ' . __('Changed', 'evidence') . '</b></dt>';
+					print '<dt><b>' . $date . ' ' . __('Changed', 'evidence') .' - ' .$where . '</b></dt>';
 				} else {
 					print '<dt><b>' . $date . '</b></dt>';
 				}
-				
+
 				print '<dd>';
 				if (isset($data['entity'][$date])) {
 					print 'Entity MIB:<br/>';
+					
 					$data_compare_entity = $data['entity'][$date];
 
 					foreach($data['entity'][$date] as $entity) {
-						if ($datatype == 'all') { 
+						if ($datatype == 'all') {
+
+							unset($entity['scan_date']);
+
 							unset($entity['host_id']);
 							unset($entity['organization_id']);
 							unset($entity['organization_name']);
-							unset($entity['scan_date']);
-							print_r($entity);
+
+							foreach ($entity as $key => $value) {
+								if ($value != '') {
+									print $key . ': ' . $value . ' | ';
+								}
+							}
+
 							print '<br/>';
 						} else if (array_key_exists($datatype, $entity)) {
 							print $datatype . ': ';
-							print_r($entity[$datatype]);
+							print $entity[$datatype];
 							print '<br/>';
 						}
 					}
@@ -838,6 +910,8 @@ echo "<hr/>";
 
 				if (($datatype == 'all' || $datatype == 'mac') && isset($data['mac'][$date])) {
 					$count = 0;
+
+					$data_compare_mac = $data['mac'][$date];
 
 					print '<br/>MAC addresses:<br/>';
 					print '<table class="cactiTable"><tr>';
@@ -851,7 +925,7 @@ echo "<hr/>";
 						}
 					}
 					print '</tr></table>';
-					$data_compare_mac = $data['mac'][$date];
+					
 				} else {
 					$data_compare_mac = array();
 				}
@@ -865,10 +939,21 @@ echo "<hr/>";
 						unset($spec['mandatory']);
 						unset($spec['scan_date']);
 
-						print_r($spec);
+						print $spec['description'];
+						print ' (oid: ' . $spec['oid'] . '): ';
+
+						if (!is_array($spec['value'])) {
+							print $spec['value'];
+						} else {
+							// nested array
+							foreach ($spec['value'] as $key => $value) {
+								print implode(', ', $value);
+							}
+						}
+
 						print '<br/>';
 					}
-				}else {
+				} else {
 					$data_compare_spec = array();
 				}
 
@@ -880,17 +965,24 @@ echo "<hr/>";
 						unset($opt['mandatory']);
 						unset($opt['scan_date']);
 
-						print_r($opt);
+						print $opt['description'];
+						print ' (oid: ' . $opt['oid'] . '): ';
+
+						if (!is_array($opt['value'])) {
+							print $opt['value'];
+						} else {
+							// nested array
+							foreach ($opt['value'] as $key => $value) {
+								print implode(', ', $value);
+							}
+						}
+
 						print '<br/>';
 					}
 
 				}
 				print '</dd>';
-
-
 			}
-	//	} else {
-	//		print __('No data', 'evidence');
 		}
 	} else {
 		print __('History data store disabled', 'evidence');
@@ -947,35 +1039,41 @@ function evidence_show_actual_data ($data) {
 	}
 
 	if (isset($data['spec'])) {
-		$count = 0;
 		print '<br/><b>Vendor specific:</b><br/>';
-		print '<table class="cactiTable"><tr><td>';
 
 		foreach ($data['spec'] as $row) {
-			print $row['description'] . ': ' . $row['value'] . '</br>';
-			$count++;
-			if ($count > 5) {
-				$count = 0;
-				print '</td><td>';
+			print $row['description'];
+			print ' (oid: ' . $row['oid'] . '): ';
+
+			if (!is_array($row['value'])) {
+				print $row['value'] . '</br>';
+			} else {
+				// nested array
+				foreach ($row['value'] as $key => $value) {
+					print implode(', ', $value);
+				}
+				print '<br/>';
 			}
 		}
-		print '</td></tr></table>';
 	}
 
 	if (isset($data['opt'])) {
-		$count = 0;
 		print '<br/><b>Vendor optional:</b><br/>';
-		print '<table class="cactiTable"><tr><td>';
 
 		foreach ($data['opt'] as $row) {
-			print $row['description'] . ': ' . $row['value'] . '</br>';
-			$count++;
-			if ($count > 5) {
-				$count = 0;
-				print '</td><td>';
+			print $row['description'];
+			print ' (oid: ' . $row['oid'] . '): ';
+
+			if (!is_array($row['value'])) {
+				print $row['value'] . '</br>';
+			} else {
+				// nested array
+				foreach ($row['value'] as $key => $value) {
+					print implode(', ', $value);
+				}
+				print '<br/>';
 			}
 		}
-		print '</td></tr></table>';
 	}
 }
 
