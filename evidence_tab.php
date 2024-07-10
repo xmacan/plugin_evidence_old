@@ -29,6 +29,8 @@ include_once('./lib/snmp.php');
 include_once('./plugins/evidence/include/functions.php');
 include_once('./plugins/evidence/include/arrays.php');
 
+//!! resit zobrazovani IP vsude
+
 set_default_action();
 
 $selectedTheme = get_selected_theme();

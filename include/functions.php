@@ -349,18 +349,22 @@ function plugin_evidence_get_ip ($h) {
 	foreach ($ips as $ip) {
 		$pos = strpos($ip['oid'], '.1.3.6.1.2.1.4.34.1.3.1.4');
 		if ($pos !== false) {
-			$ip = substr($ip['oid'], 26);
-			$return['ip'][] = $ip;
+			$pos = strrpos($ip['oid'], '.');
+
+			$ip = substr($ip['oid'], 26, strlen($ip['oid']) - $pos+26);
+			$return[$ip] = $ip;
 
 			if (isset($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $ip])) {
 				$pos = strrpos($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $ip], '.');
-				$return['mask'][] = substr($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $ip], ++$pos);
+				$return[$ip] = $ip . '/' . substr($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $ip], ++$pos);
 			}
-
+//!! u fortigate (treba kostax), id 742, je tu chyba
+//!! on ma za tou IP adresou jeste cislo indexu, toho se musim zbavovat, pokud existuje
 		} else {
 			$pos = strpos($ip['oid'], '.1.3.6.1.2.1.4.34.1.3.2.16');
 			if ($pos !== false) {
-				$return['ip'][] = substr($ip['oid'], 27);
+				$ip = substr($ip['oid'], 27);
+				$return[$ip] = $ip;
 			} else {
 				cacti_log('Cannot parse IP address from ' . $ip['oid'], 'evidence');
 			}
@@ -385,11 +389,11 @@ function plugin_evidence_get_ip ($h) {
 	$h['snmp_port'], $h['snmp_timeout']);
 
 	foreach ($ips as $k => $v) {
-		$return['ip'][] = $v['value'];
-	}
-
-	foreach ($masks as $k => $v) {
-		$return['mask'][] = $v['value'];
+		$ip = $v['value'];
+		$return[$ip] = $ip;
+		if (isset($masks[$k])) {
+			$return[$ip] = $ip . '/' . $masks[$k]['value'];
+		}
 	}
 
 	return $return;

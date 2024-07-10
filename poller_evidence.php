@@ -184,7 +184,8 @@ if (cacti_sizeof($hosts) > 0) {
 		$data_mac_his    = array();
 		$data_ip_his    = array();
 		$data_spec_his   = array();
-
+var_dump(plugin_evidence_get_ip($host));
+die();
 		evidence_debug('Host ' . $host['id'] . ' trying ENTITY MIB');
 
 		$data_entity = plugin_evidence_get_entity_data($host);
@@ -376,7 +377,7 @@ if (cacti_sizeof($hosts) > 0) {
 							'Older entity data:' . print_r($data_entity_his, true) . '<br/><br/>' . PHP_EOL .
 							'Actual MAC adresses:' . print_r($data_mac, true) . '<br/><br/>' . PHP_EOL .
 							'Older MAC adresses:' . print_r($data_mac_his, true) . '<br/><br/>' . PHP_EOL .
-							'Actual IP adresses:' . print_r($data_ip true) . '<br/><br/>' . PHP_EOL .
+							'Actual IP adresses:' . print_r($data_ip, true) . '<br/><br/>' . PHP_EOL .
 							'Older IP adresses:' . print_r($data_ip_his, true) . '<br/><br/>' . PHP_EOL .
 							'Actual vendor specific data:' . print_r($data_spec, true) . '<br/><br/>' . PHP_EOL .
 							'Older vendor specific data:' . print_r($data_spec_his, true) . '<br/><br/>' . PHP_EOL,
@@ -429,9 +430,9 @@ if (cacti_sizeof($hosts) > 0) {
 			if (cacti_sizeof($data_ip) > 0) {
 				foreach ($data_ip as $ip) {
 					db_execute_prepared('INSERT INTO plugin_evidence_ip
-						(host_id, ip, mask, scan_date)
-						VALUES (?, ?, ?, ?)',
-						array($host['id'], $ip['ip'], $ip['mask'], $scan_date));
+						(host_id, ip, scan_date)
+						VALUES (?, ?, ?)',
+						array($host['id'], $ip['ip'], $scan_date));
 				}
 			}
 

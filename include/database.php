@@ -91,8 +91,7 @@ function plugin_evidence_initialize_database() {
 
 	$data = array();
 	$data['columns'][] = array('name' => 'host_id', 'type' => 'int(11)', 'NULL' => false);
-	$data['columns'][] = array('name' => 'ip', 'type' => 'varchar(39)', 'default' => null);
-	$data['columns'][] = array('name' => 'mask', 'type' => 'varchar(39)', 'default' => null);
+	$data['columns'][] = array('name' => 'ip', 'type' => 'varchar(79)', 'default' => null);
 	$data['columns'][] = array('name' => 'scan_date', 'type' => 'timestamp', 'NULL' => false, 'default' => '0000-00-00 00:00:00');
 	$data['type'] = 'InnoDB';
 	$data['comment'] = 'evidence entity ip address';
