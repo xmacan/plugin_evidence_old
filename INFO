@@ -1,7 +1,7 @@
 [info]
 name = evidence
 version = 0.1
-longname = Serial number and version
+longname = Evidence - SN, HW, version, ...
 author = Petr Macek
 email = petr.macek@kostax.cz
 homepage = https://github.com/cacti/plugin_evidence

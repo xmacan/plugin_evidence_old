@@ -89,6 +89,15 @@ function plugin_evidence_initialize_database() {
 	$data['comment'] = 'evidence entity mac address';
 	api_plugin_db_table_create ('evidence', 'plugin_evidence_mac', $data);
 
+	$data = array();
+	$data['columns'][] = array('name' => 'host_id', 'type' => 'int(11)', 'NULL' => false);
+	$data['columns'][] = array('name' => 'ip', 'type' => 'varchar(39)', 'default' => null);
+	$data['columns'][] = array('name' => 'mask', 'type' => 'varchar(39)', 'default' => null);
+	$data['columns'][] = array('name' => 'scan_date', 'type' => 'timestamp', 'NULL' => false, 'default' => '0000-00-00 00:00:00');
+	$data['type'] = 'InnoDB';
+	$data['comment'] = 'evidence entity ip address';
+	api_plugin_db_table_create ('evidence', 'plugin_evidence_ip', $data);
+
 	// vendor specific
 
 	// Aruba/HPE
@@ -195,14 +204,14 @@ function plugin_evidence_initialize_database() {
 
 	// QNAP
 	db_execute ("INSERT INTO plugin_evidence_specific_query
-		(org_id, description, oid, result, method, table_items
+		(org_id, description, oid, result, method, table_items)
 		VALUES
 		(24681, 'hw disks', '.1.3.6.1.4.1.24681.1.3.11.1', '.*', 'table', '2-name,5-type')");
 
 	db_execute ("INSERT INTO plugin_evidence_specific_query
 		(org_id, description, oid, result, method, table_items, mandatory)
 		VALUES
-		(24681, 'hw disks', '.1.3.6.1.4.1.24681.1.3.11.1', '.*', 'table', '2-name,3-temp,7-smart', 'no')");
+		(24681, 'hw disks info', '.1.3.6.1.4.1.24681.1.3.11.1', '.*', 'table', '2-name,3-temp,7-smart', 'no')");
 
 	// Synology - Info - Synology has OrgID 6574, but uses 8072
 	db_execute ("INSERT INTO plugin_evidence_specific_query

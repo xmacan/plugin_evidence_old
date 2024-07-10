@@ -31,8 +31,6 @@ include('../../include/cli_check.php');
 include_once($config['library_path'] . '/snmp.php');
 include_once($config['base_path'] . '/plugins/evidence/include/functions.php');
 
-//!!! include_once($config['base_path'] . '/lib/reports.php');
-
 
 /* let PHP run just as long as it has to */
 ini_set('max_execution_time', '0');
@@ -107,8 +105,7 @@ if (cacti_sizeof($parms)) {
 if (strtolower($host_id) == 'all') {
 	$sql_where = '';
 } elseif (is_numeric($host_id) && $host_id > 0) {
-	$sql_where = ' AND id = ?';
-	$params[] = $host_id;
+	$sql_where = ' AND id = ' . $host_id;
 } else {
 	print 'ERROR: You must specify either a host_id or \'all\' to proceed.' . PHP_EOL;
 
@@ -163,12 +160,13 @@ $rec_spec   = 0;
 $rec_opt    = 0;
 
 
-$hosts = db_fetch_assoc_prepared ("SELECT * FROM host
+evidence_debug('scan date is ' .  $scan_date);
+
+$hosts = db_fetch_assoc ("SELECT * FROM host
 	WHERE disabled != 'on' AND
 	host.status BETWEEN 2 AND 3 AND
 	snmp_version != 0 " .
-	$sql_where,
-	$params);
+	$sql_where);
 
 
 evidence_debug('Found ' . cacti_sizeof($hosts) . ' devices');
@@ -178,11 +176,13 @@ if (cacti_sizeof($hosts) > 0) {
 	foreach ($hosts as $host) {
 		$data_entity = array();
 		$data_mac    = array();
+		$data_ip    = array();
 		$data_spec   = array();
 		$data_opt    = array();
 		$old_data    = false;
 		$data_entity_his = array();
 		$data_mac_his    = array();
+		$data_ip_his    = array();
 		$data_spec_his   = array();
 
 		evidence_debug('Host ' . $host['id'] . ' trying ENTITY MIB');
@@ -191,7 +191,10 @@ if (cacti_sizeof($hosts) > 0) {
 		evidence_debug('Host ' . $host['id'] . ' returned ' . cacti_sizeof($data_entity) . ' records');
 
 		$data_mac = plugin_evidence_get_mac($host);
-		evidence_debug('Host ' . $host['id'] . ' gathering MAC address, returned ' . cacti_sizeof($data_mac) . ' records');
+		evidence_debug('Host ' . $host['id'] . ' gathering MAC addresses, returned ' . cacti_sizeof($data_mac) . ' records');
+
+		$data_ip = plugin_evidence_get_ip($host);
+		evidence_debug('Host ' . $host['id'] . ' gathering IP addresses, returned ' . cacti_sizeof($data_ip) . ' records');
 
 		$org_id = plugin_evidence_find_organization($host);
 
@@ -213,12 +216,14 @@ if (cacti_sizeof($hosts) > 0) {
 			if ($count > 0) {
 				$data_spec = plugin_evidence_get_data_specific($host, false);
 
+//!!! tady nize to rozbijim
+/*
 				foreach ($data_spec as $key => $val) {
-					if (is_array($val['value'])) {
+					if (isset($val['value']) &&is_array($val['value'])) {
 						$data_spec[$key]['value'][] = $val['value'];
 					}
 				}
-
+*/
 				evidence_debug('Host ' . $host['id'] . ' supports specific values, returned ' . cacti_sizeof($data_spec) . ' records');
 			}
 
@@ -229,13 +234,14 @@ if (cacti_sizeof($hosts) > 0) {
 
 			if ($count > 0) {
 				$data_opt = plugin_evidence_get_data_specific($host, true);
+/*
 				foreach ($data_opt as $key => $val) {
 
-					if (is_array($val['value'])) {
+					if (isset($val['value']) && is_array($val['value'])) {
 						$data_opt[$key]['value'][] = $val['value'];
 					}
 				}
-
+*/
 				evidence_debug('Host ' . $host['id'] . ' supports specific optional values, returned ' . cacti_sizeof($data_opt) . ' records');
 			}
 		}
@@ -257,7 +263,7 @@ if (cacti_sizeof($hosts) > 0) {
 				array($host['id'], $old_scan_date));
 		}
 
-		$old_scan_date = db_fetch_cell_prepared('SELECT MAX(scan_date) 
+		$old_scan_date = db_fetch_cell_prepared('SELECT MAX(scan_date)
 			FROM plugin_evidence_mac
 			WHERE host_id = ?',
 			array($host['id']));
@@ -270,6 +276,21 @@ if (cacti_sizeof($hosts) > 0) {
 				scan_date = ?
 				ORDER BY mac',
 				array($host['id'], $old_scan_date)),'mac');
+		}
+
+		$old_scan_date = db_fetch_cell_prepared('SELECT MAX(scan_date)
+			FROM plugin_evidence_ip
+			WHERE host_id = ?',
+			array($host['id']));
+
+		if ($old_scan_date) {
+			$old_data = true;
+
+			$data_ip_his = db_fetch_assoc_prepared ('SELECT ip, mask FROM plugin_evidence_ip
+				WHERE host_id = ? AND
+				scan_date = ?
+				ORDER BY ip',
+				array($host['id'], $old_scan_date));
 		}
 
 		$old_scan_date = db_fetch_cell_prepared('SELECT MAX(scan_date)
@@ -299,14 +320,16 @@ if (cacti_sizeof($hosts) > 0) {
 
 //!! udelal jsem ze vseho pole, mozna mi nefunguje porovnani se starymi daty
 		/* comparasion with old data */
-		if ($old_data && (cacti_sizeof($data_entity_his) > 0 || cacti_sizeof($data_mac_his) > 0 || cacti_sizeof($data_spec_his) > 0)) {
+		if ($old_data && (cacti_sizeof($data_entity_his) > 0 || cacti_sizeof($data_mac_his) > 0 ||
+			cacti_sizeof($data_ip_his) > 0 || cacti_sizeof($data_spec_his) > 0)) {
 
 			evidence_debug('Host ' . $host['id'] . ' comparing with old data');
 
 			$diff = array(
 				'entity' => false,
-				'mac' => false,
-				'spec' => false
+				'mac'    => false,
+				'ip'     => false,
+				'spec'   => false
 			);
 
 			if ($data_entity !== $data_entity_his) {
@@ -316,19 +339,23 @@ if (cacti_sizeof($hosts) > 0) {
 			if ($data_mac != $data_mac_his) {
 				$diff['mac'] = true;
 			}
+//!! kontrola, jak testuju
+			if ($data_ip != $data_ip_his) {
+				$diff['ip'] = true;
+			}
 
 			if ($data_spec !== $data_spec_his) {
 				$diff['spec'] = true;
 			}
 
-			if (!$diff['entity'] && !$diff['mac'] && !$diff['spec']) {
+			if (!$diff['entity'] && !$diff['mac'] && !$diff['ip'] && !$diff['spec']) {
 				evidence_debug('Host ' . $host['id'] . ' data is the same, nothing to do');
 			} else {
 				evidence_debug('Host ' . $host['id'] . ' different data, maybe notification');
 
 				$excluded = explode(',', read_config_option('evidence_email_notify_exclude_hosts'));
 
-				if (read_config_option('evidence_email_notify')) {
+				if (read_config_option('evidence_email_notify') == 'on') {
 					if (in_array($host['id'], $excluded)) {
 						cacti_log('Plugin evidence - host changed (id:' . $host['id'] . '),  excluded from notification');
 						evidence_debug('Host ' . $host['id'] . ' excluded from notification');
@@ -349,6 +376,8 @@ if (cacti_sizeof($hosts) > 0) {
 							'Older entity data:' . print_r($data_entity_his, true) . '<br/><br/>' . PHP_EOL .
 							'Actual MAC adresses:' . print_r($data_mac, true) . '<br/><br/>' . PHP_EOL .
 							'Older MAC adresses:' . print_r($data_mac_his, true) . '<br/><br/>' . PHP_EOL .
+							'Actual IP adresses:' . print_r($data_ip true) . '<br/><br/>' . PHP_EOL .
+							'Older IP adresses:' . print_r($data_ip_his, true) . '<br/><br/>' . PHP_EOL .
 							'Actual vendor specific data:' . print_r($data_spec, true) . '<br/><br/>' . PHP_EOL .
 							'Older vendor specific data:' . print_r($data_spec_his, true) . '<br/><br/>' . PHP_EOL,
 							'', '', true); 
@@ -365,11 +394,10 @@ if (cacti_sizeof($hosts) > 0) {
 			
 		}
 
-		if (!$old_data || $diff['entity'] || $diff['mac'] || $diff['spec']) { /* saving new data */
+		if (!$old_data || $diff['entity'] || $diff['mac'] || $diff['ip'] || $diff['spec']) { /* saving new data */
 			/* store data from entity mib */
 			if (cacti_sizeof($data_entity) > 0) {
 				foreach ($data_entity as $l) {
-
 					db_execute_prepared('INSERT INTO plugin_evidence_entity
 						(host_id, organization_id, organization_name,
 						`index`, `descr`, `name`,
@@ -396,54 +424,112 @@ if (cacti_sizeof($hosts) > 0) {
 						array($host['id'], $mac, $scan_date));
 				}
 			}
+//!! zkontrolovat ukladani IP
+			/* store IP addresses */
+			if (cacti_sizeof($data_ip) > 0) {
+				foreach ($data_ip as $ip) {
+					db_execute_prepared('INSERT INTO plugin_evidence_ip
+						(host_id, ip, mask, scan_date)
+						VALUES (?, ?, ?, ?)',
+						array($host['id'], $ip['ip'], $ip['mask'], $scan_date));
+				}
+			}
+
+
+//!! proc klet aruba cluster nevraci nic ve specific
+			
 //!! uklada tohle po 26.6 17:10 vice zaznamu, kdyz jsem misto json zacal delat pole?
 			/* store vendor specific mandatory */
 			if (cacti_sizeof($data_spec) > 0) {
 				foreach ($data_spec as $key => $val) {
-
-					db_execute_prepared('INSERT INTO plugin_evidence_vendor_specific
-						(host_id, oid, description, value, mandatory, scan_date)
-						VALUES (?, ?, ?, ?, "yes", ?)',
-						array($host['id'], $val['oid'], $val['description'], $val['value'], $scan_date));
+					if (isset($val['value'])) {
+//!! tady je asi serializace zbytecna
+/*
+						if (is_array($val['value'])) {
+							$serialized = implode(',', $val['value']);
+						} else {
+							$serialized = $val['value'];
+						}
+*/
+						db_execute_prepared('INSERT INTO plugin_evidence_vendor_specific
+							(host_id, oid, description, value, mandatory, scan_date)
+							VALUES (?, ?, ?, ?, "yes", ?)',
+							array($host['id'], $val['oid'], $val['description'], $val['value'], $scan_date));
+					}
 				}
 			}
 
 			/* store vendor specific optional */
 			if (cacti_sizeof($data_opt) > 0) {
 				foreach ($data_opt as $key => $val) {
-
-					db_execute_prepared('INSERT INTO plugin_evidence_vendor_specific
-						(host_id, oid, description, value, mandatory, scan_date)
-						VALUES (?, ?, ?, ?, "no", ?)',
-						array($host['id'], $val['oid'], $val['description'], $val['value'], $scan_date));
+					if (isset($val['value'])) {
+						db_execute_prepared('INSERT INTO plugin_evidence_vendor_specific
+							(host_id, oid, description, value, mandatory, scan_date)
+							VALUES (?, ?, ?, ?, "no", ?)',
+							array($host['id'], $val['oid'], $val['description'], $val['value'], $scan_date));
+					}
 				}
 			}
-//!! otestovat mazani
+//!! otestovat mazani 
 			/* delete old data */
-			$tables = array(
-				'plugin_evidence_entity',
-				'plugin_evidence_mac',
-				'plugin_evidence_vendor_specific'
-			);
 
-			foreach ($tables as $table) {
-				$scan_date = db_fetch_cell_prepared('SELECT DISTINCT(scan_date)
-					FROM ?
-					WHERE host_id = ?
-					ORDER BY scan_date DESC
-					LIMIT ? ,1',
-					array($table, $host['id'], $evidence_records));
+			$scan_date = db_fetch_cell_prepared('SELECT DISTINCT(scan_date)
+				FROM plugin_evidence_entity
+				WHERE host_id = ?
+				ORDER BY scan_date DESC
+				LIMIT ' . $evidence_records . ' ,1',
+				array($host['id']));
 
-				if ($scan_date) {
-					db_execute_prepared ('DELETE FROM ?
-						WHERE host_id = ? AND scan_date < ?',
-						array($table, $host['id'], $scan_date));
-				}
+			if ($scan_date) {
+				db_execute_prepared ('DELETE FROM plugin_evidence_entity
+					WHERE host_id = ? AND scan_date < ?',
+					array($host['id'], $scan_date));
 			}
+
+			$scan_date = db_fetch_cell_prepared('SELECT DISTINCT(scan_date)
+				FROM plugin_evidence_mac
+				WHERE host_id = ?
+				ORDER BY scan_date DESC
+				LIMIT ' . $evidence_records . ' ,1',
+				array($host['id']));
+
+			if ($scan_date) {
+				db_execute_prepared ('DELETE FROM plugin_evidence_mac
+					WHERE host_id = ? AND scan_date < ?',
+					array($host['id'], $scan_date));
+			}
+
+			$scan_date = db_fetch_cell_prepared('SELECT DISTINCT(scan_date)
+				FROM plugin_evidence_ip
+				WHERE host_id = ?
+				ORDER BY scan_date DESC
+				LIMIT ' . $evidence_records . ' ,1',
+				array($host['id']));
+
+			if ($scan_date) {
+				db_execute_prepared ('DELETE FROM plugin_evidence_ip
+					WHERE host_id = ? AND scan_date < ?',
+					array($host['id'], $scan_date));
+			}
+
+			$scan_date = db_fetch_cell_prepared('SELECT DISTINCT(scan_date)
+				FROM plugin_evidence_vendor_specific
+				WHERE host_id = ?
+				ORDER BY scan_date DESC
+				LIMIT ' . $evidence_records . ' ,1',
+				array($host['id']));
+
+			if ($scan_date) {
+				db_execute_prepared ('DELETE FROM plugin_evidence_vendor_specific
+					WHERE host_id = ? AND scan_date < ?',
+					array($host['id'], $scan_date));
+			}
+
 		}
 
 		$rec_entity += cacti_sizeof($data_entity);
 		$rec_mac    += cacti_sizeof($data_mac);
+		$rec_ip     += cacti_sizeof($data_ip);
 		$rec_spec   += cacti_sizeof($data_spec);
 		$rec_opt    += cacti_sizeof($data_opt);
 		$devices++;
@@ -453,8 +539,8 @@ if (cacti_sizeof($hosts) > 0) {
 
 $poller_end = microtime(true);
 
-$pstats = 'Time:' . round($poller_end-$poller_start, 2) . ', Devices:' . $devices . ' Entity rec:' . $rec_entity . 
-' Mac rec:' . $rec_mac . ' Specific rec: ' . $rec_spec . ' Optional rec:' . $rec_opt;
+$pstats = 'Time:' . round($poller_end-$poller_start, 2) . ', Devices:' . $devices . ' Entity:' . $rec_entity .
+' Mac:' . $rec_mac . ' IP:' . $rec_mac . ' Specific: ' . $rec_spec . ' Optional:' . $rec_opt;
 
 cacti_log('EVIDENCE STATS: ' . $pstats, false, 'SYSTEM');
 set_config_option('plugin_evidence_stats', $pstats);

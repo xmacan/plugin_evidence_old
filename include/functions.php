@@ -23,12 +23,12 @@
  +-------------------------------------------------------------------------+
 */
 
+//!! prvni ulozeny zaznam ma datum 000000
 
 function plugin_evidence_poller_bottom() {
 	global $config;
 
 	if (plugin_evidence_time_to_run()) {
-
 		include_once($config['library_path'] . '/poller.php');
 		$command_string = trim(read_config_option('path_php_binary'));
 
@@ -39,6 +39,7 @@ function plugin_evidence_poller_bottom() {
 		$extra_args = ' -q ' . $config['base_path'] . '/plugins/evidence/poller_evidence.php --id=all';
 
 		exec_background($command_string, $extra_args);
+	} else {
 	}
 }
 
@@ -280,7 +281,6 @@ function plugin_evidence_get_entity_data($h) {
 
 
 /* try to find if device are using any mac addresses */
-
 function plugin_evidence_get_mac ($h) {
 
 	$return = array();
@@ -292,6 +292,10 @@ function plugin_evidence_get_mac ($h) {
 
 	foreach ($macs as $mac) {
 		if (strlen($mac['value']) > 1) {
+			if ($mac == '0:0:0:0:0:0:0:e0') { // windows server reports this nonsense
+				continue;
+			}
+			
 			$mac = plugin_evidence_normalize_mac($mac['value']);
 			if (!in_array($mac, $return)) {
 				$return[] = $mac;
@@ -302,6 +306,94 @@ function plugin_evidence_get_mac ($h) {
 	}
 
 	return $return;
+}
+
+
+/* try to find if device are using any IPv4/IPv6 addresses */
+
+function plugin_evidence_get_ip ($h) {
+
+	cacti_oid_numeric_format();
+
+	$return = array();
+
+/*
+	snmpwalk is:
+	.1.3.6.1.2.1.4.34.1.3.1.4.10.21.160.222.32 = INTEGER: 32
+	.1.3.6.1.2.1.4.34.1.3.1.4.10.253.255.254.30 = INTEGER: 30
+	.1.3.6.1.2.1.4.34.1.3.1.4.169.254.1.1.7 = INTEGER: 7
+	need parse IP from OID
+	
+	mask is here - value is reference to masktable, but a lot of devices doesn't support OID ....32.1.5
+	so parse mask length from oid (last number)
+	.1.3.6.1.2.1.4.34.1.5.1.4.10.21.160.222.32 = OID: .1.3.6.1.2.1.4.32.1.5.32.1.10.21.160.0.21
+	.1.3.6.1.2.1.4.34.1.5.1.4.10.253.255.254.30 = OID: .1.3.6.1.2.1.4.32.1.5.30.1.10.253.240.0.20
+	.1.3.6.1.2.1.4.34.1.5.1.4.169.254.1.1.7 = OID: .1.3.6.1.2.1.4.32.1.5.7.1.169.254.1.0.24
+*/
+
+	$ips = @cacti_snmp_walk($h['hostname'], $h['snmp_community'], '.1.3.6.1.2.1.4.34.1.3',
+		$h['snmp_version'],$h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'],
+		$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],$h['snmp_context'], 
+		$h['snmp_port'], $h['snmp_timeout']);
+
+	$mask_oid = @cacti_snmp_walk($h['hostname'], $h['snmp_community'], '.1.3.6.1.2.1.4.34.1.5',
+		$h['snmp_version'],$h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'],
+		$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],$h['snmp_context'], 
+		$h['snmp_port'], $h['snmp_timeout']);
+
+	$masks = array();
+	foreach ($mask_oid as $k => $v) {
+		$masks[$v['oid']] = $v['value'];
+	}
+
+	foreach ($ips as $ip) {
+		$pos = strpos($ip['oid'], '.1.3.6.1.2.1.4.34.1.3.1.4');
+		if ($pos !== false) {
+			$ip = substr($ip['oid'], 26);
+			$return['ip'][] = $ip;
+
+			if (isset($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $ip])) {
+				$pos = strrpos($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $ip], '.');
+				$return['mask'][] = substr($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $ip], ++$pos);
+			}
+
+		} else {
+			$pos = strpos($ip['oid'], '.1.3.6.1.2.1.4.34.1.3.2.16');
+			if ($pos !== false) {
+				$return['ip'][] = substr($ip['oid'], 27);
+			} else {
+				cacti_log('Cannot parse IP address from ' . $ip['oid'], 'evidence');
+			}
+		}
+	}
+
+	if (cacti_sizeof($return)) {
+		return $return;
+	}
+
+/*	IP MIB contains deprecated IP table. A lot of devices are using deprecated instead of table above
+	here is fall back */
+
+	$ips = @cacti_snmp_walk($h['hostname'], $h['snmp_community'], '.1.3.6.1.2.1.4.20.1.1',
+	$h['snmp_version'],$h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'],
+	$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],$h['snmp_context'], 
+	$h['snmp_port'], $h['snmp_timeout']);
+
+	$masks = @cacti_snmp_walk($h['hostname'], $h['snmp_community'], '.1.3.6.1.2.1.4.20.1.3',
+	$h['snmp_version'],$h['snmp_username'], $h['snmp_password'], $h['snmp_auth_protocol'],
+	$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],$h['snmp_context'], 
+	$h['snmp_port'], $h['snmp_timeout']);
+
+	foreach ($ips as $k => $v) {
+		$return['ip'][] = $v['value'];
+	}
+
+	foreach ($masks as $k => $v) {
+		$return['mask'][] = $v['value'];
+	}
+
+	return $return;
+
 }
 
 
@@ -357,14 +449,19 @@ function plugin_evidence_get_data_specific ($h, $optional = false) {
 				$h['snmp_context'], $h['snmp_port'], $h['snmp_timeout']);
 
 			if (cacti_sizeof($data) > 0) {
+
 				foreach ($data as $row) {
 					if (preg_match ('#' . $step['result'] . '#', $row['value'], $matches) !== false) {
 						if (strlen($matches[0]) > 0) {
 							$data_spec[$i]['value'][] = $matches[0];
 						}
 					} else {
-						$data_spec[$i]['value'] = $data . ' (cannot find specified regexp, so display all ';
+						$data_spec[$i]['value'][] = $data . ' (cannot find specified regexp, so display all ';
 					}
+				}
+				
+				if (is_array($data_spec[$i]['value'])) {
+					$data_spec[$i]['value'] = implode(',', $data_spec[$i]['value']);
 				}
 			}
 
@@ -389,8 +486,10 @@ function plugin_evidence_get_data_specific ($h, $optional = false) {
 					$h['snmp_priv_passphrase'], $h['snmp_priv_protocol'],
 					$h['snmp_context'], $h['snmp_port'], $h['snmp_timeout']);
 
-				$data_spec[$i]['value'] = array_column($data[$in],'value');
+				if (cacti_sizeof($data[$in])) {
+					$data_spec[$i]['value'] = implode(',', array_column($data[$in],'value'));
 
+				}
 				$i++;
 			}
 		}
@@ -399,24 +498,58 @@ function plugin_evidence_get_data_specific ($h, $optional = false) {
 	return $data_spec;
 }
 
-function plugin_evidence_normalize_mac ($mac_address) {
+//!! scan_date je dobre u agrafika BSD, co zbytek?
 
-	$mac_address = trim($mac_address);
+//!! tohle otestovat
+function plugin_evidence_normalize_mac ($mac) {
 
-	if (strlen($mac_address) > 10) {
-		$max_address = str_replace(array('"', ' ', '-'), array('',  ':', ':'), $mac_address);
-	} else { /* return is hex */
-		$mac = '';
+	$mac = trim($mac);
 
-		for ($j = 0; $j < strlen($mac_address); $j++) {
-			$mac .= bin2hex($mac_address[$j]) . ':';
+	if (preg_match('/^([a-fA-F0-9]{4}\.){2}[a-fA-F0-9]{4}$/', $mac)) { // 1234.5678.abcd
+		$mac = str_replace('.','', $mac);
+		$tmp_mac = str_split($mac, 2);
+		$mac = implode(':', $tmp_mac);
+		return strtoupper($mac);
+	} elseif (preg_match('/^[a-fA-F0-9]{12}$/', $mac)) { // 12345678abcd
+		$tmp_mac = str_split($mac, 2);
+		$mac = implode(':', $tmp_mac);
+		return strtoupper($mac);
+	} elseif (preg_match('/^[a-fA-F0-9]{11}$/', $mac)) { // 0345678abcd
+		$tmp_mac = str_split('0' . $mac, 2);
+		$mac = implode(':', $tmp_mac);
+		return strtoupper($mac);
+	} elseif (preg_match('/^([a-fA-F0-9]{2}\-){5}[a-fA-F0-9]{2}$/', $mac)) { // 12-34-56-78-ab-cd
+		$mac = str_replace('-', ':', $mac);
+		return strtoupper($mac);
+	} elseif (preg_match('/^([a-fA-F0-9]{1,2}\-){5}[a-fA-F0-9]{1,2}$/', $mac)) { // 0-34-0-78-ab-cd
+		$words = explode ('-', $mac);
+		foreach ($words as $word) {
+			if (strlen($word) == 1) {
+				$tmp_mac[] = '0' . $word;
+			} else {
+				$tmp_mac[] = $word;
+			}
 		}
-
-		$mac_address = $mac;
+		return strtoupper(implode(':', $tmp_mac));
+	} elseif (preg_match('/^([a-fA-F0-9]{2}:){5}[a-fA-F0-9]{2}$/', $mac)) { // 12:34:56:78:ab:cd
+		return strtoupper($mac);
+	} elseif (preg_match('/^([a-fA-F0-9]{1,2}:){5}[a-fA-F0-9]{1,2}$/', $mac)) { // 0:34:0:78:ab:cd
+		$tmp_mac = array();
+		$words = explode(':', $mac);
+		foreach ($words as $word) {
+			if (strlen($word) == 1) {
+				$tmp_mac[] = '0' . $word;
+			} else {
+				$tmp_mac[] = $word;
+			}
+		}
+		return strtoupper(implode(':', $tmp_mac));
+	} else {
+		cacti_log('Unknown MAC address format "' . $mac . '"', 'evidence');
+		return ($mac);
 	}
-
-	return strtoupper($mac_address);
 }
+
 
 
 
@@ -522,7 +655,7 @@ function plugin_evidence_find() {
 				$desc . '</a> (ID: ' . $row['host_id'] . '), found in ' . $row['count'] . ' records<br/>';
 		}
 	} else {
-		print 'Not found<br/>';
+		print __('Not found', 'evidence') . '<br/>';
 	}
 
 	$data = db_fetch_assoc_prepared ("SELECT host_id, COUNT(scan_date) AS `count` FROM plugin_evidence_mac
@@ -538,7 +671,7 @@ function plugin_evidence_find() {
 				$desc . '</a> (ID: ' . $row['host_id'] . '), found in ' . $row['count'] . ' records<br/>';
 		}
 	} else {
-		print 'Not found<br/>';
+		print __('Not found', 'evidence') . '<br/>';
 	}
 
 
@@ -559,10 +692,11 @@ function plugin_evidence_find() {
 				$desc . '</a> (ID: ' . $row['host_id'] . '), found in ' . $row['count'] . ' records<br/>';
 		}
 	} else {
-		print 'Not found<br/>';
+		print __('Not found', 'evidence') . '<br/>';
 	}
 
 }
+
 
 /* query for actual data */
 
@@ -582,7 +716,6 @@ function plugin_evidence_actual_data ($host) {
 			array($org_id));
 
 		$out['org_name'] = $org_name;
-
 		$host['org_id'] = $org_id;
 
 		$count = db_fetch_cell_prepared ('SELECT count(*) FROM plugin_evidence_specific_query
@@ -642,27 +775,32 @@ function plugin_evidence_time_to_run() {
 	$baselower = $basetime - 300;
 	$now       = time();
 
-	cacti_log("LastRun:'$lastrun', Frequency:'$frequency' sec, BaseTime:'" . date('Y-m-d H:i:s', $basetime) . "', BaseUpper:'$baseupper', BaseLower:'$baselower', Now:'" . date('Y-m-d H:i:s', $now) . "'", false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
+//	cacti_log("LastRun:'$lastrun', Frequency:'$frequency' sec, BaseTime:'" . date('Y-m-d H:i:s', $basetime) . "', BaseUpper:'$baseupper', BaseLower:'$baselower', Now:'" . date('Y-m-d H:i:s', $now) . "'", false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
+	cacti_log("LastRun:'$lastrun', Frequency:'$frequency' sec, BaseTime:'" . date('Y-m-d H:i:s', $basetime) . "', BaseUpper:'$baseupper', BaseLower:'$baselower', Now:'" . date('Y-m-d H:i:s', $now) . "'", false, 'EVIDENCE');
 
 	if ($frequency > 0 && ($now - $lastrun > $frequency)) {
 		if (empty($lastrun) && ($now < $baseupper) && ($now > $baselower)) {
 
-			cacti_log('Time to first run', false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
+//			cacti_log('Time to first run', false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
+			cacti_log('Time to first run', false, 'EVIDENCE');
 			set_config_option('plugin_evidence_lastrun', time());
 
 			return true;
 		} elseif (($now - $lastrun > $frequency) && ($now < $baseupper) && ($now > $baselower)) {
-			cacti_log('Time to periodic Run', false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
+//			cacti_log('Time to periodic Run', false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
+			cacti_log('Time to periodic Run', false, 'EVIDENCE');
 			set_config_option('plugin_evidence_lastrun', time());
 
 			return true;
 		} else {
-			cacti_log('Not Time to Run', false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
+//			cacti_log('Not Time to Run', false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
+	cacti_log('Not Time to Run', false, 'EVIDENCE');
 
 			return false;
 		}
 	} else {
-		cacti_log('Not time to Run', false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
+//		cacti_log('Not time to Run', false, 'EVIDENCE', POLLER_VERBOSITY_HIGH);
+		cacti_log('Not time to Run', false, 'EVIDENCE');
 
 		return false;
 	}
@@ -679,7 +817,7 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 
 	$host = db_fetch_row_prepared ('SELECT host.*, host_template.name as `template_name`
 		FROM host
-		JOIN host_template
+		LEFT JOIN host_template
 		ON host.host_template_id = host_template.id
 		WHERE host.id = ?',
 		array($host_id));
@@ -701,7 +839,7 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 		}
 
 		if (isset($data['org_id'])) {
-			print ' (' . $data['org_id'] . ')';
+			print ' (ID ORG: ' . $data['org_id'] . ')' . '<br/>';
 		}
 
 		if (in_array($datatype, $entities) && isset($data['entity'])) {
@@ -793,7 +931,7 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 		$data = plugin_evidence_history($host_id);
 
 		if (!isset($data['dates'])) {
-			print __('No data', 'evidence');
+			print __('No older data yet', 'evidence');
 			return true;
 		} else {
 
