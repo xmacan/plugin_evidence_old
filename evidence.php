@@ -51,6 +51,11 @@ if (is_array($allowed) && in_array($id, $allowed)) {
 		WHERE host_id = ?',
 		array($id));
 
+	$count_ip = db_fetch_assoc_prepared('SELECT count(*)
+		FROM plugin_evidence_ip
+		WHERE host_id = ?',
+		array($id));
+
 	$count_vendor = db_fetch_assoc_prepared('SELECT count(*)
 		FROM plugin_evidence_vendor_specific
 		WHERE host_id = ?',
@@ -62,7 +67,7 @@ if (is_array($allowed) && in_array($id, $allowed)) {
 		evidence_show_actual_data(plugin_evidence_actual_data($host));
 	}
 
-	if ($evidence_records > 0 && ($count_entity > 0 || $count_mac > 0 || $count_vendor > 0)) {
+	if ($evidence_records > 0 && ($count_entity > 0 || $count_mac > 0 || $count_ip > 0 || $count_vendor > 0)) {
 		print '<br/><br/><a href="' . $config['url_path'] . 'plugins/evidence/evidence_tab.php?host_id=' .
 			$id . '&action=find">' . __('Show older records', 'evidence') . '</a><br/>';
 	} else {

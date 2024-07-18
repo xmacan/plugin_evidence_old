@@ -1,4 +1,4 @@
-<?php
+<?php7
 /* vim: ts=4
  +-------------------------------------------------------------------------+
  | Copyright (C) 2004-2024 The Cacti Group, Inc.                           |
@@ -184,8 +184,8 @@ if (cacti_sizeof($hosts) > 0) {
 		$data_mac_his    = array();
 		$data_ip_his    = array();
 		$data_spec_his   = array();
-var_dump(plugin_evidence_get_ip($host));
-die();
+// !!var_dump(plugin_evidence_get_ip($host));
+//die();
 		evidence_debug('Host ' . $host['id'] . ' trying ENTITY MIB');
 
 		$data_entity = plugin_evidence_get_entity_data($host);
@@ -287,10 +287,10 @@ die();
 		if ($old_scan_date) {
 			$old_data = true;
 
-			$data_ip_his = db_fetch_assoc_prepared ('SELECT ip, mask FROM plugin_evidence_ip
+			$data_ip_his = db_fetch_assoc_prepared ('SELECT ip_mask FROM plugin_evidence_ip
 				WHERE host_id = ? AND
 				scan_date = ?
-				ORDER BY ip',
+				ORDER BY ip_mask',
 				array($host['id'], $old_scan_date));
 		}
 
@@ -430,7 +430,7 @@ die();
 			if (cacti_sizeof($data_ip) > 0) {
 				foreach ($data_ip as $ip) {
 					db_execute_prepared('INSERT INTO plugin_evidence_ip
-						(host_id, ip, scan_date)
+						(host_id, ip_mask, scan_date)
 						VALUES (?, ?, ?)',
 						array($host['id'], $ip['ip'], $scan_date));
 				}
@@ -525,7 +525,6 @@ die();
 					WHERE host_id = ? AND scan_date < ?',
 					array($host['id'], $scan_date));
 			}
-
 		}
 
 		$rec_entity += cacti_sizeof($data_entity);
@@ -541,7 +540,7 @@ die();
 $poller_end = microtime(true);
 
 $pstats = 'Time:' . round($poller_end-$poller_start, 2) . ', Devices:' . $devices . ' Entity:' . $rec_entity .
-' Mac:' . $rec_mac . ' IP:' . $rec_mac . ' Specific: ' . $rec_spec . ' Optional:' . $rec_opt;
+	' Mac:' . $rec_mac . ' IP:' . $rec_ip . ' Specific: ' . $rec_spec . ' Optional:' . $rec_opt;
 
 cacti_log('EVIDENCE STATS: ' . $pstats, false, 'SYSTEM');
 set_config_option('plugin_evidence_stats', $pstats);

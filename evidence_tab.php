@@ -18,8 +18,8 @@
  | This code is designed, written, and maintained by the Cacti Group. See  |
  | about.php and/or the AUTHORS file for specific developer information.   |
  +-------------------------------------------------------------------------+
- | https://github.com/xmacan/                                              |
- | http://www.cacti.net/                                                   |
+ | https://github.com/cacti/                                               |
+ | https://www.cacti.net/                                                  |
  +-------------------------------------------------------------------------+
 */
 
@@ -28,8 +28,6 @@ include_once('./include/auth.php');
 include_once('./lib/snmp.php');
 include_once('./plugins/evidence/include/functions.php');
 include_once('./plugins/evidence/include/arrays.php');
-
-//!! resit zobrazovani IP vsude
 
 set_default_action();
 
@@ -115,6 +113,7 @@ function evidence_display_form() {
 
 	$scan_dates = array_column(db_fetch_assoc('SELECT DISTINCT(scan_date) FROM plugin_evidence_entity
 		UNION SELECT DISTINCT(scan_date) FROM plugin_evidence_mac
+		UNION SELECT DISTINCT(scan_date) FROM plugin_evidence_ip
 		UNION SELECT DISTINCT(scan_date) FROM plugin_evidence_vendor_specific
 		ORDER BY scan_date DESC'), 'scan_date');
 
@@ -153,6 +152,7 @@ function evidence_display_form() {
 	print '<select id="datatype" name="datatype">';
 	print '<option value="all" '    . (get_request_var('datatype') == 'all'  ? 'selected="selected"' : '') . '>' . __('All', 'evidence') . '</option>';
 	print '<option value="mac" '  . (get_request_var('datatype') == 'mac'  ? 'selected="selected"' : '') . '>' . __('Mac addresses', 'evidence') . '</option>';
+	print '<option value="ip"  '  . (get_request_var('datatype') == 'ip'   ? 'selected="selected"' : '') . '>' . __('IP addresses', 'evidence') . '</option>';
 	print '<option value="spec" ' . (get_request_var('datatype') == 'spec' ? 'selected="selected"' : '') . '>' . __('Vendor specific', 'evidence') . '</option>';
 	print '<option value="opt" '  . (get_request_var('datatype') == 'opt'  ? 'selected="selected"' : '') . '>' . __('Vendor optional', 'evidence') . '</option>';
 
@@ -240,6 +240,7 @@ function evidence_stats() {
 	$vnd = db_fetch_cell ('SELECT count(distinct(organization_id)) FROM plugin_evidence_entity');
 	$ent = db_fetch_cell ('SELECT COUNT(*) FROM plugin_evidence_entity');
 	$mac = db_fetch_cell ('SELECT COUNT(distinct(mac)) FROM plugin_evidence_mac');
+	$ip  = db_fetch_cell ('SELECT COUNT(distinct(ip)) FROM plugin_evidence_ip');
 	$ven = db_fetch_cell ('SELECT COUNT(*) FROM plugin_evidence_vendor_specific');
 	$old = db_fetch_cell ('SELECT MIN(scan_date) FROM plugin_evidence_entity');
 
@@ -247,6 +248,7 @@ function evidence_stats() {
 	print '<strong>' . __('Number of records') . ':</strong><br/>';
 	print 'Entity MIB: ' . $ent . ', records, ' . $vnd . ' vendors<br/>';
 	print 'Unique MAC adresses: ' . $mac . '<br/>';
+	print 'Unique IP adresses: ' . $ip . '<br/>';
 	print 'Vendor specific data: ' . $ven . '<br/>';
 	print 'Oldest record: ' . $old . '<br/>';
 }
