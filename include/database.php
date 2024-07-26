@@ -40,7 +40,7 @@ function plugin_evidence_initialize_database() {
 	$data['columns'][] = array('name' => 'description', 'type' => 'varchar(255)', 'NULL' => false);
 	$data['columns'][] = array('name' => 'oid', 'type' => 'varchar(255)', 'NULL' => false);
 	$data['columns'][] = array('name' => 'result', 'type' => 'varchar(255)', 'NULL' => false);
-	$data['columns'][] = array('name' => 'method', 'type' => 'enum("get","walk","info","table")', 'default' => 'get', 'NULL' => false);
+	$data['columns'][] = array('name' => 'method', 'type' => 'enum("get", "walk", "info", "table")', 'default' => 'get', 'NULL' => false);
 	$data['columns'][] = array('name' => 'table_items', 'type' => 'varchar(100)', 'default' => null, 'NULL' => true);
 	$data['columns'][] = array('name' => 'mandatory', 'type' => 'enum("yes","no")', 'default' => 'yes', 'NULL' => false);
 	$data['primary'] = 'id';
@@ -74,7 +74,7 @@ function plugin_evidence_initialize_database() {
 	$data['columns'][] = array('name' => 'host_id', 'type' => 'int(11)', 'NULL' => false);
 	$data['columns'][] = array('name' => 'oid', 'type' => 'varchar(255)', 'default' => null);
 	$data['columns'][] = array('name' => 'description', 'type' => 'varchar(255)', 'default' => null);
-	$data['columns'][] = array('name' => 'value', 'type' => 'varchar(255)', 'default' => null);
+	$data['columns'][] = array('name' => 'value', 'type' => 'text', 'default' => null);
 	$data['columns'][] = array('name' => 'mandatory', 'type' => 'enum("yes","no")', 'default' => 'yes', 'NULL' => false);
 	$data['columns'][] = array('name' => 'scan_date', 'type' => 'timestamp', 'NULL' => false, 'default' => '0000-00-00 00:00:00');
 	$data['type'] = 'InnoDB';

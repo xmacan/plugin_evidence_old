@@ -23,7 +23,11 @@
  +-------------------------------------------------------------------------+
 */
 
-//!! prvni ulozeny zaznam ma datum 000000
+//!! dam si hledat pvt fg s id ....252 a jen serial number. mam tam par zmenenych a stejne mi to
+// porad zobrazuje stejne hodnoty i kdyz rika zmeneno
+
+//!! tohle sem nepatri, ale dkyz si zvolim entitu, kterou to nema, tak zobrazuju prazdne datumy zaznamu
+
 
 function plugin_evidence_poller_bottom() {
 	global $config;
@@ -293,7 +297,7 @@ function plugin_evidence_get_mac ($h) {
 
 	foreach ($macs as $mac) {
 		if (strlen($mac['value']) > 1) {
-			if ($mac == '0:0:0:0:0:0:0:e0') { // windows server reports this nonsense
+			if ($mac['value'] == '0:0:0:0:0:0:0:e0') { // windows server reports this nonsense
 				continue;
 			}
 			
@@ -304,7 +308,9 @@ function plugin_evidence_get_mac ($h) {
 		}
 	}
 
-	return sort($return);
+	sort($return);
+
+	return $return;
 }
 
 
@@ -346,35 +352,57 @@ function plugin_evidence_get_ip ($h) {
 	}
 
 	foreach ($ips as $ip) {
+
 		$pos = strpos($ip['oid'], '.1.3.6.1.2.1.4.34.1.3.1.4');
+
 		if ($pos !== false) {
 			$pos = strrpos($ip['oid'], '.');
 
-			$ip = substr($ip['oid'], 26, strlen($ip['oid']) - $pos+26);
-			$return[$ip] = $ip;
+			$fin_ip = substr($ip['oid'], 26, strlen($ip['oid']) - $pos+26);
 
-			if (isset($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $ip])) {
-				$pos = strrpos($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $ip], '.');
+			if (isset($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $fin_ip])) {
+				$pos = strrpos($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $fin_ip], '.');
 				
-				if (substr_count($ip, '.') == 4) {	// some devices (fortigate) have index on last position
-					$return[$ip] = substr($ip, 0, strrpos($ip, '.')) . '/' . substr($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $ip], ++$pos);
+				if (substr_count($fin_ip, '.') == 4) {	// some devices (fortigate) have index on last position
+					$return[] = substr($fin_ip, 0, strrpos($fin_ip, '.')) . '/' . substr($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $fin_ip], ++$pos);
 				} else {
-					$return[$ip] = $ip . '/' . substr($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $ip], ++$pos);
+					$return[] = $fin_ip . '/' . substr($masks['.1.3.6.1.2.1.4.34.1.5.1.4.' . $fin_ip], ++$pos);
 				}
 			}
+		}
+		/* fortigate issue, returns .1.3.6.1.2.1.4.34.1.5.1.192.168.12.254.16 = OID: .0.0.0
+		    betterdiscard this and use old deprecated OIDs
+		*/
+
+		$pos = strpos($ip['oid'], '.1.3.6.1.2.1.4.34.1.3.1');
+		if ($pos !== false) {
+			$pos = strrpos($ip['oid'], '.');
+			$fin_ip = substr($ip['oid'], 24, strlen($ip['oid']) - $pos+24);
+			/*
+			if (isset($masks['.1.3.6.1.2.1.4.34.1.5.1.' . $fin_ip])) {
+				$pos = strrpos($masks['.1.3.6.1.2.1.4.34.1.5.1.' . $fin_ip], '.');
+
+				if (substr_count($fin_ip, '.') == 4) {	// some devices (fortigate) have index on last position
+					$return[] = substr($ip, 0, strrpos($fin_ip, '.')) . '/' . substr($masks['.1.3.6.1.2.1.4.34.1.5.1.' . $fin_ip], ++$pos);
+				} else {
+					$return[] = $fin_ip . '/' . substr($masks['.1.3.6.1.2.1.4.34.1.5.1.' . $fin_ip], ++$pos);
+				}
+			}
+			*/
 		} else {
 			$pos = strpos($ip['oid'], '.1.3.6.1.2.1.4.34.1.3.2.16');
 			if ($pos !== false) {
-				$ip = substr($ip['oid'], 27);
-				$return[$ip] = $ip;
+				$fin_ip = substr($ip['oid'], 27);
+				$return[] = $fin_ip;
 			} else {
-				cacti_log('Cannot parse IP address from ' . $ip['oid'], 'evidence');
+				cacti_log('Device ' . $h['id'] . ' - cannot parse IP address from ' . $ip['oid'], 'evidence');
 			}
 		}
 	}
 
 	if (cacti_sizeof($return)) {
-		return sort($return);
+		sort($return);
+		return ($return);
 	}
 
 /*	IP MIB contains deprecated IP table. A lot of devices are using deprecated instead of table above
@@ -392,13 +420,14 @@ function plugin_evidence_get_ip ($h) {
 
 	foreach ($ips as $k => $v) {
 		$ip = $v['value'];
-		$return[$ip] = $ip;
+
 		if (isset($masks[$k])) {
-			$return[$ip] = $ip . '/' . $masks[$k]['value'];
+			$return[] = $ip . '/' . $masks[$k]['value'];
 		}
 	}
 
-	return sort($return);
+	sort($return);
+	return $return;
 }
 
 
@@ -503,9 +532,6 @@ function plugin_evidence_get_data_specific ($h, $optional = false) {
 	return $data_spec;
 }
 
-//!! scan_date je dobre u agrafika BSD, co zbytek?, dalsi maji 0000
-
-//!! tohle otestovat
 function plugin_evidence_normalize_mac ($mac) {
 
 	$mac = trim($mac);
@@ -587,7 +613,7 @@ function plugin_evidence_history ($host_id) {
 
 	if (cacti_sizeof($data)) {
 		foreach ($data as $row) {
-			$out['mac'][$row['scan_date']][] = $row;
+			$out['mac'][$row['scan_date']][] = $row['mac'];
 			$out['dates'][] = $row['scan_date'];
 		}
 	}
@@ -600,7 +626,7 @@ function plugin_evidence_history ($host_id) {
 
 	if (cacti_sizeof($data)) {
 		foreach ($data as $row) {
-			$out['ip'][$row['scan_date']][] = $row;
+			$out['ip'][$row['scan_date']][] = $row['ip_mask'];
 			$out['dates'][] = $row['scan_date'];
 		}
 	}
@@ -972,7 +998,7 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 	}
 
 	print '</dt>';
-	print '</dd>';
+	print '</dd><br/><br/>';
 
 	if ($evidence_records > 0) {
 
@@ -999,13 +1025,13 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 				if (cacti_sizeof($data_compare_entity) || cacti_sizeof($data_compare_mac) ||
 					cacti_sizeof($data_compare_ip) || cacti_sizeof($data_compare_spec)) {
 
-					if (cacti_sizeof($data_compare_entity)) {
+					if (isset($data_compare_entity) && cacti_sizeof($data_compare_entity)) {
 						foreach ($data_compare_entity as &$row) {
 							unset($row['scan_date']);
 						}
 					}
 
-					if (cacti_sizeof($data_compare_mac)) {
+					if (isset($data_compare_mac) && cacti_sizeof($data_compare_mac)) {
 						foreach ($data_compare_mac as &$row) {
 							if (isset($row['scan_date'])) {
 								unset($row['scan_date']);
@@ -1013,7 +1039,7 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 						}
 					}
 
-					if (cacti_sizeof($data_compare_ip)) {
+					if (isset ($data_compare_ip) && cacti_sizeof($data_compare_ip)) {
 						foreach ($data_compare_ip as &$row) {
 							if (isset($row['scan_date'])) {
 								unset($row['scan_date']);
@@ -1021,7 +1047,7 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 						}
 					}
 
-					if (cacti_sizeof($data_compare_spec)) {
+					if (isset($data_compare_spec) && cacti_sizeof($data_compare_spec)) {
 						foreach ($data_compare_spec as &$row) {
 							if (isset($row['scan_date'])) {
 								unset($row['scan_date']);
@@ -1029,29 +1055,30 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 						}
 					}
 
-					if (cacti_sizeof($data['entity'][$date])) {
+					if (isset($data['entity'][$date]) && cacti_sizeof($data['entity'][$date])) {
 						foreach ($data['entity'][$date] as &$row) {
 							unset($row['scan_date']);
 						}
 					}
 
-					if (cacti_sizeof($data['mac'][$date])) {
-						foreach ($data['mac'][$date] as &$row) {
-							unset($row['scan_date']);
-						}
+					if (isset($data['mac'][$date]) && cacti_sizeof($data['mac'][$date])) {
+//!! asi odmazat
+//						foreach ($data['mac'][$date] as &$row) {
+//							unset($row['scan_date']);
+//						}
 						sort($data_compare_mac);
 						sort($data['mac'][$date]);
 					}
 
-					if (cacti_sizeof($data['ip'][$date])) {
-						foreach ($data['ip'][$date] as &$row) {
-							unset($row['scan_date']);
-						}
+					if (isset($data['ip'][$date]) && cacti_sizeof($data['ip'][$date])) {
+//						foreach ($data['ip'][$date] as &$row) {
+//							unset($row['scan_date']);
+//						}
 						sort($data_compare_ip);
 						sort($data['ip'][$date]);
 					}
 
-					if (cacti_sizeof($data['spec'][$date])) {
+					if (isset($data['spec'][$date]) && cacti_sizeof($data['spec'][$date])) {
 						foreach ($data['spec'][$date] as &$row) {
 							unset($row['scan_date']);
 						}
@@ -1073,6 +1100,14 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 					}
 
 					if (isset($data_compare_spec) && isset($data['spec'][$date]) && $data_compare_spec != $data['spec'][$date]) {
+echo "<hr/>";
+var_dump($data_compare_spec);
+echo "<hr/>";
+var_dump($data['spec'][$date]);
+echo "<hr/>";
+
+echo "<hr/>";
+
 						$change = true;
 						$where = __('Vendor specific', 'evidence');
 					}
@@ -1083,7 +1118,6 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 				} else {
 					print '<dt><b>' . $date . '</b></dt>';
 				}
-
 				print '<dd>';
 				if (isset($data['entity'][$date])) {
 					print 'Entity MIB:<br/>';
@@ -1125,7 +1159,7 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 					print '<table class="cactiTable"><tr>';
 
 					foreach($data['mac'][$date] as $mac) {
-						print '<td>' . $mac['mac'] . '</td>';
+						print '<td>' . $mac . '</td>';
 						$count++;
 						if ($count > 5) {
 							$count = 0;
@@ -1145,9 +1179,9 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 
 					print '<br/>IP addresses:<br/>';
 					print '<table class="cactiTable"><tr>';
-//!! je tady IP zobrazena dobre?, ma tu byt ip_mask?
+
 					foreach($data['ip'][$date] as $ip) {
-						print '<td>' . $ip['ip_mask'] . '</td>';
+						print '<td>' . $ip . '</td>';
 						$count++;
 						if ($count > 5) {
 							$count = 0;
@@ -1170,7 +1204,7 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 						unset($spec['scan_date']);
 
 						print $spec['description'];
-						print ' (oid: ' . $spec['oid'] . '): ';
+						print ' (OID: ' . $spec['oid'] . '): ';
 
 						if (!is_array($spec['value'])) {
 							print $spec['value'];
@@ -1196,7 +1230,7 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 						unset($opt['scan_date']);
 
 						print $opt['description'];
-						print ' (oid: ' . $opt['oid'] . '): ';
+						print ' (OID: ' . $opt['oid'] . '): ';
 
 						if (!is_array($opt['value'])) {
 							print $opt['value'];
@@ -1289,7 +1323,7 @@ function evidence_show_actual_data ($data) {
 
 		foreach ($data['spec'] as $row) {
 			print $row['description'];
-			print ' (oid: ' . $row['oid'] . '): ';
+			print ' (OID: ' . $row['oid'] . '): ';
 
 			if (!is_array($row['value'])) {
 				print $row['value'] . '</br>';
@@ -1308,7 +1342,7 @@ function evidence_show_actual_data ($data) {
 
 		foreach ($data['opt'] as $row) {
 			print $row['description'];
-			print ' (oid: ' . $row['oid'] . '): ';
+			print ' (OID: ' . $row['oid'] . '): ';
 
 			if (!is_array($row['value'])) {
 				print $row['value'] . '</br>';

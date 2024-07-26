@@ -237,15 +237,20 @@ function evidence_stats() {
 	print __('You can search any string in all data.') . '<br/>';
 	print __('Note when using Scan Date - Only the data that changed at the moment of Scan_date is displayed. Data not changed at that time is not displayed.') . '<br/>';
 
+	$dev = db_fetch_cell ('SELECT SUM(total) from ( SELECT COUNT(DISTINCT(host_id)) AS total FROM plugin_evidence_entity 
+		UNION SELECT COUNT(DISTINCT(host_id)) AS total FROM plugin_evidence_mac
+		UNION SELECT COUNT(DISTINCT(host_id)) AS total FROM plugin_evidence_ip 
+		UNION SELECT COUNT(DISTINCT(host_id)) AS total FROM plugin_evidence_vendor_specific) AS t1');
 	$vnd = db_fetch_cell ('SELECT count(distinct(organization_id)) FROM plugin_evidence_entity');
 	$ent = db_fetch_cell ('SELECT COUNT(*) FROM plugin_evidence_entity');
 	$mac = db_fetch_cell ('SELECT COUNT(distinct(mac)) FROM plugin_evidence_mac');
-	$ip  = db_fetch_cell ('SELECT COUNT(distinct(ip)) FROM plugin_evidence_ip');
+	$ip  = db_fetch_cell ('SELECT COUNT(distinct(ip_mask)) FROM plugin_evidence_ip');
 	$ven = db_fetch_cell ('SELECT COUNT(*) FROM plugin_evidence_vendor_specific');
 	$old = db_fetch_cell ('SELECT MIN(scan_date) FROM plugin_evidence_entity');
 
 	print '<br/><br/>';
 	print '<strong>' . __('Number of records') . ':</strong><br/>';
+	print 'Devices: ' . $dev . ' records<br/>';
 	print 'Entity MIB: ' . $ent . ', records, ' . $vnd . ' vendors<br/>';
 	print 'Unique MAC adresses: ' . $mac . '<br/>';
 	print 'Unique IP adresses: ' . $ip . '<br/>';
