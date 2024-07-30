@@ -243,6 +243,8 @@ if (cacti_sizeof($hosts) > 0) {
 			}
 		}
 
+//!! snadno otestuju, zda nove zarizeni notifikuje, stacim smazat vse u device 410 (mikrotik agrafika) a pustit rucne
+
 		evidence_debug('Host ' . $host['id'] . ' data gathering finished');
 
 		$old_scan_date = db_fetch_cell_prepared('SELECT MAX(scan_date)
@@ -253,7 +255,9 @@ if (cacti_sizeof($hosts) > 0) {
 		if ($old_scan_date) {
 			$old_data = true;
 
-			$data_entity_his = db_fetch_assoc_prepared ('SELECT * FROM plugin_evidence_entity
+			$data_entity_his = db_fetch_assoc_prepared ('SELECT `index`, descr, name, hardware_rev, firmware_rev, software_rev,
+				serial_num, mfg_name, model_name, alias, asset_id, mfg_date, uuid
+				FROM plugin_evidence_entity
 				WHERE host_id = ? AND
 				scan_date = ?
 				ORDER BY `index`',
@@ -314,7 +318,11 @@ if (cacti_sizeof($hosts) > 0) {
 // !! zkontrolovat, jestli proti snver mam vse
 
 
-//!! udelal jsem ze vseho pole, mozna mi nefunguje porovnani se starymi daty
+//!! udelal jsem ze vseho pole, mozna mi nefunguje porovnani se starymi daty:
+//  - otestovanno entity, to uz je ok
+//  - otestovanno spec, to uz je ok
+// v mailu ted mam IP, ktere se lisi
+
 		/* comparasion with old data */
 		if ($old_data && (cacti_sizeof($data_entity_his) > 0 || cacti_sizeof($data_mac_his) > 0 ||
 			cacti_sizeof($data_ip_his) > 0 || cacti_sizeof($data_spec_his) > 0)) {
@@ -343,6 +351,7 @@ if (cacti_sizeof($hosts) > 0) {
 			if ($data_spec !== $data_spec_his) {
 				$diff['spec'] = true;
 			}
+
 //!! hlasim do logu changed, i kdyz je to prvni spusteni
 			if (!$diff['entity'] && !$diff['mac'] && !$diff['ip'] && !$diff['spec']) {
 				evidence_debug('Host ' . $host['id'] . ' data is the same, nothing to do');
@@ -372,23 +381,31 @@ if (cacti_sizeof($hosts) > 0) {
 							' (' . $host['hostname'] . ')<br/><br/>' . PHP_EOL;
 
 						if (isset($data_entity)) {
+							$text .= $diff['entity'] ? '<font color="red">' : '';
 							$text .= 'Actual entity data:' . print_r($data_entity, true) . '<br/><br/>' . PHP_EOL .
-							'Older entity data:' . print_r($data_entity_his, true) . '<br/><br/>' . PHP_EOL;
+								'Older entity data:' . print_r($data_entity_his, true) . '<br/><br/>' . PHP_EOL;
+							$text .= $diff['entity'] ? '</font>' : '';
 						}
 
 						if (isset($data_mac)) {
+							$text .= $diff['mac'] ? '<font color="red">' : '';
 							$text .= 'Actual MAC adresses:' . print_r($data_mac, true) . '<br/><br/>' . PHP_EOL .
-							'Older MAC adresses:' . print_r($data_mac_his, true) . '<br/><br/>' . PHP_EOL;
+								'Older MAC adresses:' . print_r($data_mac_his, true) . '<br/><br/>' . PHP_EOL;
+							$text .= $diff['mac'] ? '</font>' : '';
 						}
 
 						if (isset($data_ip)) {
-							'Actual IP adresses:' . print_r($data_ip, true) . '<br/><br/>' . PHP_EOL .
-							'Older IP adresses:' . print_r($data_ip_his, true) . '<br/><br/>' . PHP_EOL;
+							$text .= $diff['ip'] ? '<font color="red">' : '';
+							$text .= 'Actual IP adresses:' . print_r($data_ip, true) . '<br/><br/>' . PHP_EOL .
+								'Older IP adresses:' . print_r($data_ip_his, true) . '<br/><br/>' . PHP_EOL;
+							$text .= $diff['ip'] ? '</font>' : '';
 						}
 
 						if (isset($data_spec)) {
-							'Actual vendor specific data:' . print_r($data_spec, true) . '<br/><br/>' . PHP_EOL .
-							'Older vendor specific data:' . print_r($data_spec_his, true) . '<br/><br/>' . PHP_EOL;
+							$text .= $diff['spec'] ? '<font color="red">' : '';
+							$text .= 'Actual vendor specific data:' . print_r($data_spec, true) . '<br/><br/>' . PHP_EOL .
+								'Older vendor specific data:' . print_r($data_spec_his, true) . '<br/><br/>' . PHP_EOL;
+							$text .= $diff['spec'] ? '</font>' : '';
 						}
 
 						send_mail($emails, read_config_option('settings_from_email'),
