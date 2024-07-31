@@ -23,11 +23,6 @@
  +-------------------------------------------------------------------------+
 */
 
-//!! dam si hledat pvt fg s id ....252 a jen serial number. mam tam par zmenenych a stejne mi to
-// porad zobrazuje stejne hodnoty i kdyz rika zmeneno
-
-//!! tohle sem nepatri, ale dkyz si zvolim entitu, kterou to nema, tak zobrazuju prazdne datumy zaznamu
-
 
 function plugin_evidence_poller_bottom() {
 	global $config;
@@ -690,7 +685,9 @@ function plugin_evidence_find() {
 	$data = db_fetch_assoc ('SELECT host_id, COUNT(scan_date) AS `count` FROM plugin_evidence_entity
 		WHERE ' . $sql_where . ' GROUP BY host_id');
 
+
 	print '<br/><b>Entity MIB:</b><br/>';
+
 	if (cacti_sizeof($data)) {
 		foreach ($data as $row) {
 			$desc = db_fetch_cell_prepared ('SELECT description FROM host WHERE id = ?', array($row['host_id']));
@@ -708,6 +705,7 @@ function plugin_evidence_find() {
 	print '<br/><b>MAC addresses:</b><br/>';
 
 	if (cacti_sizeof($data)) {
+
 		foreach ($data as $row) {
 			$desc = db_fetch_cell_prepared ('SELECT description FROM host WHERE id = ?', array($row['host_id']));
 			print '<a href="' . $config['url_path'] . 
@@ -899,7 +897,8 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 			print ' (ID ORG: ' . $data['org_id'] . ')' . '<br/>';
 		}
 
-		if (in_array($datatype, $entities) && isset($data['entity'])) {
+		if ((array_key_exists($datatype, $entities) && isset($data['entity'])) || $datatype == 'all') {
+
 			print '<br/><b>Entity MIB:</b><br/>';
 			print '<table class="cactiTable"><tr>';
 
@@ -959,9 +958,9 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 
 			foreach ($data['spec'] as $row) {
 				if (!is_array($row['value'])) {
-					print $row['description'] . ' (OID: ' . $row['oid'] . '): ' . $row['value'] . '</br>';
+					print $row['description'] . ': ' . $row['value'] . display_tooltip('OID: ' . $row['oid']) . '</br>';
 				} else {
-					print $row['description'] . ' (OID: ' . $row['oid'] . '): ';
+					print $row['description'] . display_tooltip('OID: ' . $row['oid']) . ':</br>';
 					foreach ($row['value'] as $a) {
 						if (is_array($a)) {
 							print implode(', ', $a);
@@ -981,9 +980,9 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 
 			foreach ($data['opt'] as $row) {
 				if (!is_array($row['value'])) {
-					print $row['description'] . ' (OID: ' . $row['oid'] . '): ' . $row['value'] . '</br>';
+					print $row['description'] . ': ' . $row['value'] . display_tooltip('OID: ' . $row['oid']) . '</br>';
 				} else {
-					print $row['description'] . ' (OID: ' . $row['oid'] . '): ';
+					print $row['description'] . display_tooltip('OID: ' . $row['oid']) . ':</br>';
 					foreach ($row['value'] as $a) {
 						if (is_array($a)) {
 							print implode(', ', $a);
@@ -1008,8 +1007,6 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 			print __('No older data yet', 'evidence');
 			return true;
 		} else {
-
-//!! kdyz je vybrana entita nebo scan_date, tak v javascriptu nezavirat ostatni?
 
 			$dates = array_unique($data['dates']);
 
@@ -1062,18 +1059,11 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 					}
 
 					if (isset($data['mac'][$date]) && cacti_sizeof($data['mac'][$date])) {
-//!! asi odmazat
-//						foreach ($data['mac'][$date] as &$row) {
-//							unset($row['scan_date']);
-//						}
 						sort($data_compare_mac);
 						sort($data['mac'][$date]);
 					}
 
 					if (isset($data['ip'][$date]) && cacti_sizeof($data['ip'][$date])) {
-//						foreach ($data['ip'][$date] as &$row) {
-//							unset($row['scan_date']);
-//						}
 						sort($data_compare_ip);
 						sort($data['ip'][$date]);
 					}
@@ -1084,44 +1074,39 @@ function evidence_show_host_data ($host_id, $datatype, $scan_date) {
 						}
 					}
 
-					if (isset($data_compare_entity) && isset($data['entity'][$date]) && $data_compare_entity != $data['entity'][$date]) {
+					if (cacti_sizeof($data_compare_entity) > 0 && isset($data['entity'][$date]) && $data_compare_entity != $data['entity'][$date]) {
 						$change = true;
 						$where = __('Entity', 'evidence');
 					}
 
-					if (isset($data_compare_mac) && isset($data['mac'][$date]) && $data_compare_mac != $data['mac'][$date]) {
+					if (cacti_sizeof($data_compare_mac) > 0 && isset($data['mac'][$date]) && $data_compare_mac != $data['mac'][$date]) {
 						$change = true;
 						$where = __('MAC addresses', 'evidence');
 					}
 
-					if (isset($data_compare_ip) && isset($data['ip'][$date]) && $data_compare_ip != $data['ip'][$date]) {
+					if (cacti_sizeof($data_compare_ip) > 0 && isset($data['ip'][$date]) && $data_compare_ip != $data['ip'][$date]) {
 						$change = true;
 						$where = __('IP addresses', 'evidence');
 					}
 
-					if (isset($data_compare_spec) && isset($data['spec'][$date]) && $data_compare_spec != $data['spec'][$date]) {
-echo "<hr/>";
-var_dump($data_compare_spec);
-echo "<hr/>";
-var_dump($data['spec'][$date]);
-echo "<hr/>";
-
-echo "<hr/>";
+					if (cacti_sizeof($data_compare_spec) > 0 && isset($data['spec'][$date]) && $data_compare_spec != $data['spec'][$date]) {
 
 						$change = true;
 						$where = __('Vendor specific', 'evidence');
 					}
 				}
-//!! hlasim changed vendor specific, kdyz si zvolim jen konkretni entitu
+
 				if ($change) {
 					print '<dt><b>' . $date . ' ' . __('Changed', 'evidence') .' - ' .$where . '</b></dt>';
 				} else {
 					print '<dt><b>' . $date . '</b></dt>';
 				}
 				print '<dd>';
-				if (isset($data['entity'][$date])) {
+
+				if ((array_key_exists($datatype, $entities) && isset($data['entity'][$date])) || $datatype == 'all') {
+
 					print 'Entity MIB:<br/>';
-					
+		
 					$data_compare_entity = $data['entity'][$date];
 
 					foreach($data['entity'][$date] as $entity) {
@@ -1203,8 +1188,8 @@ echo "<hr/>";
 						unset($spec['mandatory']);
 						unset($spec['scan_date']);
 
-						print $spec['description'];
-						print ' (OID: ' . $spec['oid'] . '): ';
+						print $spec['description'] . ': ';
+						print display_tooltip('OID: ' . $spec['oid']);
 
 						if (!is_array($spec['value'])) {
 							print $spec['value'];
@@ -1229,8 +1214,8 @@ echo "<hr/>";
 						unset($opt['mandatory']);
 						unset($opt['scan_date']);
 
-						print $opt['description'];
-						print ' (OID: ' . $opt['oid'] . '): ';
+						print $opt['description'] . ': ';
+						print display_tooltip('OID: ' . $opt['oid']);
 
 						if (!is_array($opt['value'])) {
 							print $opt['value'];
@@ -1322,8 +1307,8 @@ function evidence_show_actual_data ($data) {
 		print '<br/><b>Vendor specific:</b><br/>';
 
 		foreach ($data['spec'] as $row) {
-			print $row['description'];
-			print ' (OID: ' . $row['oid'] . '): ';
+			print $row['description'] . ': ';
+			print display_tooltip('OID: ' . $row['oid']);
 
 			if (!is_array($row['value'])) {
 				print $row['value'] . '</br>';
@@ -1341,8 +1326,8 @@ function evidence_show_actual_data ($data) {
 		print '<br/><b>Vendor optional:</b><br/>';
 
 		foreach ($data['opt'] as $row) {
-			print $row['description'];
-			print ' (OID: ' . $row['oid'] . '): ';
+			print $row['description'] . ': ';
+			print display_tooltip('OID: ' . $row['oid']);
 
 			if (!is_array($row['value'])) {
 				print $row['value'] . '</br>';
@@ -1357,3 +1342,40 @@ function evidence_show_actual_data ($data) {
 	}
 }
 
+function plugin_evidence_array_to_table ($array, $columns = 1) {
+
+	$output = '';
+	$col = 0;
+
+	if (cacti_sizeof($array)) {
+		$output .= '<table>';
+			$output .= '<tr>';
+
+		foreach ($array as $item) {
+
+
+			if (is_array($item)) {
+				foreach ($item as $key => $value) {
+					$output .= '<td>' . $key . ' = ' . $value  . '</td>';
+					$col++;
+					if ($col >= $columns) {
+						$output .= '</tr><tr>';
+						$col = 0;
+					}
+				}
+			} else {
+					$output .= '<td>' . $item . '</td>';
+			}
+			
+			$col++;
+
+			if ($col >= $columns) {
+				$output .= '</tr><tr>';
+				$col = 0;
+			}
+		}
+		$output .= '</table>';
+	}
+
+	return $output;
+}

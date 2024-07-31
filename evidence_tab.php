@@ -215,8 +215,10 @@ function evidence_find() {
 		foreach ($hosts as $host) {
 			evidence_show_host_data($host['id'], $datatype, $scan_date);
 		}
-	} else if (isset($find_text)) {
-		plugin_evidence_find();
+	}
+
+	if (!isset($host_id) && !isset($template_id)) {
+		print __('Select any device or template', 'snver');
 	}
 }
 

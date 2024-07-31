@@ -1,4 +1,4 @@
-//!! pouziva se?
+
 // used in host.php
 $(function() {
 

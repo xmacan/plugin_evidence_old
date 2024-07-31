@@ -212,15 +212,6 @@ if (cacti_sizeof($hosts) > 0) {
 
 			if ($count > 0) {
 				$data_spec = plugin_evidence_get_data_specific($host, false);
-
-//!!! tady nize to rozbijim - uz asi vyreseno, bude mozne smazat
-/*
-				foreach ($data_spec as $key => $val) {
-					if (isset($val['value']) &&is_array($val['value'])) {
-						$data_spec[$key]['value'][] = $val['value'];
-					}
-				}
-*/
 				evidence_debug('Host ' . $host['id'] . ' supports specific values, returned ' . cacti_sizeof($data_spec) . ' records');
 			}
 
@@ -231,19 +222,9 @@ if (cacti_sizeof($hosts) > 0) {
 
 			if ($count > 0) {
 				$data_opt = plugin_evidence_get_data_specific($host, true);
-/* !! bude mozne smazat
-				foreach ($data_opt as $key => $val) {
-
-					if (isset($val['value']) && is_array($val['value'])) {
-						$data_opt[$key]['value'][] = $val['value'];
-					}
-				}
-*/
 				evidence_debug('Host ' . $host['id'] . ' supports specific optional values, returned ' . cacti_sizeof($data_opt) . ' records');
 			}
 		}
-
-//!! snadno otestuju, zda nove zarizeni notifikuje, stacim smazat vse u device 410 (mikrotik agrafika) a pustit rucne
 
 		evidence_debug('Host ' . $host['id'] . ' data gathering finished');
 
@@ -276,7 +257,7 @@ if (cacti_sizeof($hosts) > 0) {
 				WHERE host_id = ? AND
 				scan_date = ?
 				ORDER BY mac',
-				array($host['id'], $old_scan_date)),'mac');
+				array($host['id'], $old_scan_date)), 'mac');
 		}
 
 		$old_scan_date = db_fetch_cell_prepared('SELECT MAX(scan_date)
@@ -287,11 +268,11 @@ if (cacti_sizeof($hosts) > 0) {
 		if ($old_scan_date) {
 			$old_data = true;
 
-			$data_ip_his = db_fetch_assoc_prepared ('SELECT ip_mask FROM plugin_evidence_ip
+			$data_ip_his = array_column(db_fetch_assoc_prepared ('SELECT ip_mask FROM plugin_evidence_ip
 				WHERE host_id = ? AND
 				scan_date = ?
 				ORDER BY ip_mask',
-				array($host['id'], $old_scan_date));
+				array($host['id'], $old_scan_date)), 'ip_mask');
 		}
 
 		$old_scan_date = db_fetch_cell_prepared('SELECT MAX(scan_date)
@@ -314,15 +295,6 @@ if (cacti_sizeof($hosts) > 0) {
 			evidence_debug('Host ' . $host['id'] . ' history records not found, only store new data');
 		}
 
-
-// !! zkontrolovat, jestli proti snver mam vse
-
-
-//!! udelal jsem ze vseho pole, mozna mi nefunguje porovnani se starymi daty:
-//  - otestovanno entity, to uz je ok
-//  - otestovanno spec, to uz je ok
-// v mailu ted mam IP, ktere se lisi
-
 		/* comparasion with old data */
 		if ($old_data && (cacti_sizeof($data_entity_his) > 0 || cacti_sizeof($data_mac_his) > 0 ||
 			cacti_sizeof($data_ip_his) > 0 || cacti_sizeof($data_spec_his) > 0)) {
@@ -343,7 +315,7 @@ if (cacti_sizeof($hosts) > 0) {
 			if ($data_mac != $data_mac_his) {
 				$diff['mac'] = true;
 			}
-//!! kontrola, jak testuju
+
 			if ($data_ip != $data_ip_his) {
 				$diff['ip'] = true;
 			}
@@ -352,7 +324,6 @@ if (cacti_sizeof($hosts) > 0) {
 				$diff['spec'] = true;
 			}
 
-//!! hlasim do logu changed, i kdyz je to prvni spusteni
 			if (!$diff['entity'] && !$diff['mac'] && !$diff['ip'] && !$diff['spec']) {
 				evidence_debug('Host ' . $host['id'] . ' data is the same, nothing to do');
 			} else {
@@ -362,11 +333,10 @@ if (cacti_sizeof($hosts) > 0) {
 
 				$excluded = explode(',', read_config_option('evidence_email_notify_exclude_hosts'));
 
-//!! template otestovat
 				if (read_config_option('evidence_email_notify') == 'on') {
 					if (in_array($host['id'], $excluded) || in_array($host['host_template_id'], $excluded_templates)) {
-						cacti_log('Plugin evidence - host changed (id:' . $host['id'] . '),  excluded from notification');
-						evidence_debug('Host ' . $host['id'] . ' excluded from notification');
+						cacti_log('Plugin evidence - host changed (id:' . $host['id'] . '),  Device ID or Template ID is excluded from notification');
+						evidence_debug('Host ' . $host['id'] . ' Device ID or Template ID is excluded from notification');
 					} else {
 						evidence_debug('Host ' . $host['id'] . ' sending notification');
 
@@ -375,36 +345,39 @@ if (cacti_sizeof($hosts) > 0) {
 							LEFT JOIN host ON plugin_notification_lists.id = host.thold_host_email
 							WHERE host.id = ?',
 							array($host['id']));
-//!! jak vypada email? Separatelly?
-//!! print_r asi zachovam
+
 						$text = 'I have found any HW/serial number change on host ' . $host['description'] .
 							' (' . $host['hostname'] . ')<br/><br/>' . PHP_EOL;
 
 						if (isset($data_entity)) {
 							$text .= $diff['entity'] ? '<font color="red">' : '';
-							$text .= 'Actual entity data:' . print_r($data_entity, true) . '<br/><br/>' . PHP_EOL .
-								'Older entity data:' . print_r($data_entity_his, true) . '<br/><br/>' . PHP_EOL;
+							$text .= 'Actual entity data:' . plugin_evidence_array_to_table($data_entity) . '<br/><br/>' . PHP_EOL .
+								'Older entity data:' . plugin_evidence_array_to_table($data_entity_his) . '<br/><br/>' . PHP_EOL;
 							$text .= $diff['entity'] ? '</font>' : '';
 						}
 
 						if (isset($data_mac)) {
 							$text .= $diff['mac'] ? '<font color="red">' : '';
-							$text .= 'Actual MAC adresses:' . print_r($data_mac, true) . '<br/><br/>' . PHP_EOL .
-								'Older MAC adresses:' . print_r($data_mac_his, true) . '<br/><br/>' . PHP_EOL;
+							$text .= 'Actual MAC adresses:' . plugin_evidence_array_to_table($data_mac, 5) . '<br/><br/>' . PHP_EOL .
+								'Older MAC adresses:' . plugin_evidence_array_to_table($data_mac_his, 5) . '<br/><br/>' . PHP_EOL;
 							$text .= $diff['mac'] ? '</font>' : '';
 						}
-
+/*
+var_dump($data_mac);
+echo plugin_evidence_array_to_table($data_mac, 3);
+die();
+*/
 						if (isset($data_ip)) {
 							$text .= $diff['ip'] ? '<font color="red">' : '';
-							$text .= 'Actual IP adresses:' . print_r($data_ip, true) . '<br/><br/>' . PHP_EOL .
-								'Older IP adresses:' . print_r($data_ip_his, true) . '<br/><br/>' . PHP_EOL;
+							$text .= 'Actual IP adresses:' . plugin_evidence_array_to_table($data_ip, 3) . '<br/><br/>' . PHP_EOL .
+								'Older IP adresses:' . plugin_evidence_array_to_table($data_ip_his, 3) . '<br/><br/>' . PHP_EOL;
 							$text .= $diff['ip'] ? '</font>' : '';
 						}
 
 						if (isset($data_spec)) {
 							$text .= $diff['spec'] ? '<font color="red">' : '';
-							$text .= 'Actual vendor specific data:' . print_r($data_spec, true) . '<br/><br/>' . PHP_EOL .
-								'Older vendor specific data:' . print_r($data_spec_his, true) . '<br/><br/>' . PHP_EOL;
+							$text .= 'Actual vendor specific data:' . plugin_evidence_array_to_table($data_spec) . '<br/><br/>' . PHP_EOL .
+								'Older vendor specific data:' . plugin_evidence_array_to_table($data_spec_his) . '<br/><br/>' . PHP_EOL;
 							$text .= $diff['spec'] ? '</font>' : '';
 						}
 
@@ -488,19 +461,19 @@ if (cacti_sizeof($hosts) > 0) {
 					}
 				}
 			}
-//!! otestovat mazani 
+
 			/* delete old data */
 
 			$old_date_limit = db_fetch_cell_prepared('SELECT DISTINCT(scan_date)
 				FROM plugin_evidence_entity
 				WHERE host_id = ?
 				ORDER BY scan_date DESC
-				LIMIT ' . $evidence_records . ' ,1',
+				LIMIT ' . $evidence_records . ' , 1',
 				array($host['id']));
 
 			if ($old_date_limit) {
 				db_execute_prepared ('DELETE FROM plugin_evidence_entity
-					WHERE host_id = ? AND scan_date < ?',
+					WHERE host_id = ? AND scan_date <= ?',
 					array($host['id'], $old_date_limit));
 			}
 
@@ -508,12 +481,12 @@ if (cacti_sizeof($hosts) > 0) {
 				FROM plugin_evidence_mac
 				WHERE host_id = ?
 				ORDER BY scan_date DESC
-				LIMIT ' . $evidence_records . ' ,1',
+				LIMIT ' . $evidence_records . ' , 1',
 				array($host['id']));
 
 			if ($old_date_limit) {
 				db_execute_prepared ('DELETE FROM plugin_evidence_mac
-					WHERE host_id = ? AND scan_date < ?',
+					WHERE host_id = ? AND scan_date <= ?',
 					array($host['id'], $old_date_limit));
 			}
 
@@ -521,12 +494,12 @@ if (cacti_sizeof($hosts) > 0) {
 				FROM plugin_evidence_ip
 				WHERE host_id = ?
 				ORDER BY scan_date DESC
-				LIMIT ' . $evidence_records . ' ,1',
+				LIMIT ' . $evidence_records . ' , 1',
 				array($host['id']));
 
 			if ($old_date_limit) {
 				db_execute_prepared ('DELETE FROM plugin_evidence_ip
-					WHERE host_id = ? AND scan_date < ?',
+					WHERE host_id = ? AND scan_date <= ?',
 					array($host['id'], $old_date_limit));
 			}
 
@@ -534,12 +507,12 @@ if (cacti_sizeof($hosts) > 0) {
 				FROM plugin_evidence_vendor_specific
 				WHERE host_id = ?
 				ORDER BY scan_date DESC
-				LIMIT ' . $evidence_records . ' ,1',
+				LIMIT ' . $evidence_records . ' , 1',
 				array($host['id']));
 
 			if ($old_date_limit) {
 				db_execute_prepared ('DELETE FROM plugin_evidence_vendor_specific
-					WHERE host_id = ? AND scan_date < ?',
+					WHERE host_id = ? AND scan_date <= ?',
 					array($host['id'], $old_date_limit));
 			}
 		}
